@@ -2,6 +2,7 @@ package route
 
 import (
 	"prestasi_mhs/app/service"
+	"prestasi_mhs/constant"
 	"prestasi_mhs/middleware"
 
 	"github.com/gofiber/fiber/v2"
@@ -15,13 +16,28 @@ func RegisterRoutes(
 
 	api := app.Group("/api")
 
-	auth := api.Group("/auth")
-	auth.Post("/login", authSvc.LoginHTTP)
+	api.Post("/auth/login", authSvc.LoginHTTP)
 
 	ach := api.Group("/achievements", middleware.JWT())
 
-	ach.Post("/", achSvc.CreateHTTP)
-	ach.Get("/:studentId", achSvc.ListByStudentHTTP)
+	ach.Post("/",
+		middleware.Role(constant.RoleMahasiswa),
+		achSvc.CreateHTTP,
+	)
+	ach.Get("/me",
+		middleware.Role(constant.RoleMahasiswa),
+		achSvc.ListMineHTTP,
+	)
+
+	ach.Get("/student/:studentId",
+		middleware.Role(constant.RoleDosenWali, constant.RoleAdmin),
+		achSvc.ListByStudentHTTP,
+	)
+
+	ach.Get("/",
+		middleware.Role(constant.RoleAdmin),
+		achSvc.ListAllHTTP,
+	)
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{

@@ -17,3 +17,7 @@ func NewStudentService(repo *repository.StudentRepository) *StudentService {
 func (s *StudentService) FindByUserID(ctx context.Context, userID string) (*model.Student, error) {
 	return s.Repo.FindByUserID(ctx, userID)
 }
+
+func (s *StudentService) IsMyStudent(ctx context.Context, dosenUserID, studentID string) (bool, error) {
+    return s.Repo.IsMyStudent(ctx, dosenUserID, studentID)
+}

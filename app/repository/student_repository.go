@@ -41,3 +41,23 @@ func (r *StudentRepository) FindByUserID(ctx context.Context, userID string) (*m
 
 	return &s, nil
 }
+
+func (r *StudentRepository) IsMyStudent(ctx context.Context, dosenUserID, studentID string) (bool, error) {
+
+    const q = `
+        SELECT COUNT(*)
+        FROM students
+        WHERE id = $1
+        AND advisor_id = (
+            SELECT id FROM lecturers WHERE user_id = $2
+        )
+    `
+
+    var count int
+    err := database.PG.QueryRow(ctx, q, studentID, dosenUserID).Scan(&count)
+    if err != nil {
+        return false, err
+    }
+
+    return count > 0, nil
+}

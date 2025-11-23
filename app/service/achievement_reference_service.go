@@ -21,3 +21,7 @@ func (s *AchievementReferenceService) Insert(ctx context.Context, ref *model.Ach
 func (s *AchievementReferenceService) FindMongoIDsByStudent(ctx context.Context, studentID string) ([]string, error) {
 	return s.Repo.FindMongoIDsByStudent(ctx, studentID)
 }
+
+func (s *AchievementReferenceService) FindAll(ctx context.Context) ([]model.AchievementReference, error) {
+    return s.Repo.FindAll(ctx)
+}

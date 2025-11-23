@@ -51,3 +51,35 @@ func (r *AchievementReferenceRepository) FindMongoIDsByStudent(ctx context.Conte
 
 	return list, nil
 }
+
+func (r *AchievementReferenceRepository) FindAll(ctx context.Context) ([]model.AchievementReference, error) {
+
+    const q = `
+        SELECT id, student_id, mongo_achievement_id, status, created_at, updated_at
+        FROM achievement_references
+    `
+
+    rows, err := database.PG.Query(ctx, q)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var list []model.AchievementReference
+
+    for rows.Next() {
+        var ref model.AchievementReference
+        if err := rows.Scan(
+            &ref.ID,
+            &ref.StudentID,
+            &ref.MongoAchievementID,
+            &ref.Status,
+            &ref.CreatedAt,
+            &ref.UpdatedAt,
+        ); err == nil {
+            list = append(list, ref)
+        }
+    }
+
+    return list, nil
+}
