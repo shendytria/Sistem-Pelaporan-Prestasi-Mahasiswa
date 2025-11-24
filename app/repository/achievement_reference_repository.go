@@ -4,6 +4,7 @@ import (
 	"context"
 	"prestasi_mhs/app/model"
 	"prestasi_mhs/database"
+	"time"
 )
 
 type AchievementReferenceRepository struct{}
@@ -54,32 +55,84 @@ func (r *AchievementReferenceRepository) FindMongoIDsByStudent(ctx context.Conte
 
 func (r *AchievementReferenceRepository) FindAll(ctx context.Context) ([]model.AchievementReference, error) {
 
-    const q = `
+	const q = `
         SELECT id, student_id, mongo_achievement_id, status, created_at, updated_at
         FROM achievement_references
     `
 
-    rows, err := database.PG.Query(ctx, q)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+	rows, err := database.PG.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-    var list []model.AchievementReference
+	var list []model.AchievementReference
 
-    for rows.Next() {
-        var ref model.AchievementReference
-        if err := rows.Scan(
-            &ref.ID,
-            &ref.StudentID,
-            &ref.MongoAchievementID,
-            &ref.Status,
-            &ref.CreatedAt,
-            &ref.UpdatedAt,
-        ); err == nil {
-            list = append(list, ref)
-        }
-    }
+	for rows.Next() {
+		var ref model.AchievementReference
+		if err := rows.Scan(
+			&ref.ID,
+			&ref.StudentID,
+			&ref.MongoAchievementID,
+			&ref.Status,
+			&ref.CreatedAt,
+			&ref.UpdatedAt,
+		); err == nil {
+			list = append(list, ref)
+		}
+	}
 
-    return list, nil
+	return list, nil
 }
+
+func (r *AchievementReferenceRepository) UpdateStatus(ctx context.Context, id string, status string, verifiedAt *time.Time, verifiedBy *string, rejectionNote *string,) error {
+
+	const q = `
+        UPDATE achievement_references
+        SET status = $1,
+            verified_at = $2,
+            verified_by = $3,
+            rejection_note = $4,
+            updated_at = NOW()
+        WHERE id = $5
+    `
+
+	_, err := database.PG.Exec(ctx, q,
+		status,
+        verifiedAt,
+        verifiedBy,
+        rejectionNote,
+        id,
+	)
+
+	return err
+}
+
+func (r *AchievementReferenceRepository) FindByID(ctx context.Context, id string) (*model.AchievementReference, error) {
+
+	const q = `
+        SELECT id, student_id, mongo_achievement_id, status, created_at, updated_at
+        FROM achievement_references
+        WHERE id = $1
+    `
+
+	row := database.PG.QueryRow(ctx, q, id)
+
+	var ref model.AchievementReference
+
+	err := row.Scan(
+		&ref.ID,
+		&ref.StudentID,
+		&ref.MongoAchievementID,
+		&ref.Status,
+		&ref.CreatedAt,
+		&ref.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &ref, nil
+}
+

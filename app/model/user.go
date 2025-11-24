@@ -13,3 +13,11 @@ type User struct {
 	CreatedAt    time.Time `db:"created_at"`
 	UpdatedAt    time.Time `db:"updated_at"`
 }
+
+type CreateUserReq struct {
+    Username     string `json:"username"`
+    Email        string `json:"email"`
+    Password     string `json:"password_hash"`
+    FullName     string `json:"full_name"`
+    RoleID       string `json:"role_id"`
+}

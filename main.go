@@ -26,17 +26,14 @@ func main() {
 	achRefRepo := repository.NewAchievementReferenceRepository()
 
 	authSvc := service.NewAuthService(userRepo)
-	achUsecase := service.NewAchievementUsecaseService(
-		achMongoRepo,
-		achRefRepo,
-		studentRepo,
-	)
+	userSvc := service.NewUserService(userRepo)
+	achUsecase := service.NewAchievementUsecaseService(achMongoRepo, achRefRepo, studentRepo)
 
 	app := fiber.New()
 
 	app.Use(logger.New())
 
-	route.RegisterRoutes(app, authSvc, achUsecase)
+	route.RegisterRoutes(app, authSvc, userSvc,achUsecase)
 
 	log.Println("Server running on port", config.C.AppPort)
 	log.Fatal(app.Listen(":" + config.C.AppPort))
