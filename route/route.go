@@ -28,18 +28,21 @@ func RegisterRoutes(
 	users.Put("/:id/role", userSvc.UpdateRoleHTTP)
 
 	ach := api.Group("/achievements", middleware.JWT())
-	ach.Post("/", middleware.Role(constant.RoleMahasiswa), achSvc.CreateHTTP,)
-	ach.Get("/me", middleware.Role(constant.RoleMahasiswa), achSvc.ListMineHTTP,)
-
-	ach.Get("/", middleware.Role(constant.RoleAdmin), achSvc.ListAllHTTP,)
-
-	ach.Post("/:id/submit", middleware.Role(constant.RoleMahasiswa, constant.RoleAdmin), achSvc.SubmitHTTP,) 
-    ach.Post("/:id/verify", middleware.Role(constant.RoleDosenWali, constant.RoleAdmin), achSvc.VerifyHTTP, )
-    ach.Post("/:id/reject", middleware.Role(constant.RoleDosenWali, constant.RoleAdmin), achSvc.RejectHTTP, )
+	ach.Post("/", middleware.Role(constant.RoleMahasiswa), achSvc.CreateHTTP)
+	ach.Get("/me", middleware.Role(constant.RoleMahasiswa), achSvc.ListMineHTTP)
+	ach.Get("/", middleware.Role(constant.RoleAdmin), achSvc.ListAllHTTP)
+	ach.Get("/:id", middleware.Role(constant.RoleMahasiswa, constant.RoleDosenWali, constant.RoleAdmin), achSvc.DetailHTTP)
+	ach.Get("/:id/history", middleware.Role(constant.RoleMahasiswa, constant.RoleDosenWali, constant.RoleAdmin), achSvc.HistoryHTTP)
+	ach.Post("/:id/attachments", middleware.Role(constant.RoleMahasiswa, constant.RoleAdmin), achSvc.AddAttachmentHTTP)
+	ach.Put("/:id", middleware.Role(constant.RoleMahasiswa), achSvc.UpdateHTTP)
+	ach.Delete("/:id", middleware.Role(constant.RoleMahasiswa, constant.RoleAdmin), achSvc.DeleteHTTP)
+	ach.Post("/:id/submit", middleware.Role(constant.RoleMahasiswa, constant.RoleAdmin), achSvc.SubmitHTTP)
+	ach.Post("/:id/verify", middleware.Role(constant.RoleDosenWali, constant.RoleAdmin), achSvc.VerifyHTTP)
+	ach.Post("/:id/reject", middleware.Role(constant.RoleDosenWali, constant.RoleAdmin), achSvc.RejectHTTP)
 
 	// harusnya bukan achsvc
-	students := api.Group("/students", middleware.JWT())
-	students.Get("/:id/achievements", middleware.Role(constant.RoleDosenWali, constant.RoleAdmin), achSvc.ListByStudentHTTP,)
+	// students := api.Group("/students", middleware.JWT())
+	// students.Get("/:id/achievements", middleware.Role(constant.RoleDosenWali, constant.RoleAdmin), achSvc.ListByStudentHTTP)
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{

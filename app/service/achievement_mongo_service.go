@@ -23,3 +23,15 @@ func (s *AchievementMongoService) Insert(ctx context.Context, a *model.Achieveme
 func (s *AchievementMongoService) FindMany(ctx context.Context, ids []string) ([]model.Achievement, error) {
 	return s.Repo.FindMany(ctx, ids)
 }
+
+func (s *AchievementMongoService) FindByID(ctx context.Context, id string) (*model.Achievement, error) {
+	return s.Repo.FindByID(ctx, id)
+}
+
+func (s *AchievementMongoService) Update(ctx context.Context, id string, data map[string]interface{}) error {
+	return s.Repo.Update(ctx, id, data)
+}
+
+func (s *AchievementMongoService) SoftDelete(ctx context.Context, id string) error {
+	return s.Repo.SoftDelete(ctx, id)
+}

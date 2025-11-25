@@ -194,7 +194,8 @@ func (s *AchievementUsecaseService) SubmitHTTP(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "only draft can be submitted"})
 	}
 
-	err = s.RefSvc.UpdateStatus(ctx, achID, "submitted", nil, nil, nil)
+	now := time.Now()
+	err = s.RefSvc.UpdateStatus(ctx, achID, "submitted", &now, nil, nil, nil)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -232,7 +233,7 @@ func (s *AchievementUsecaseService) VerifyHTTP(c *fiber.Ctx) error {
 	now := time.Now()
 	verifier := userID
 
-	err = s.RefSvc.UpdateStatus(ctx, achID, "verified", &now, &verifier, nil)
+	err = s.RefSvc.UpdateStatus(ctx, achID, "verified", nil, &now, &verifier, nil)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -271,10 +272,247 @@ func (s *AchievementUsecaseService) RejectHTTP(c *fiber.Ctx) error {
 
 	rejection := req.Reason
 
-	err = s.RefSvc.UpdateStatus(ctx, achID, "rejected", nil, nil, &rejection)
+	err = s.RefSvc.UpdateStatus(ctx, achID, "rejected", nil, nil, nil, &rejection)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	return c.JSON(fiber.Map{"message": "rejected"})
+}
+
+func (s *AchievementUsecaseService) DetailHTTP(c *fiber.Ctx) error {
+	ctx := context.Background()
+	achID := c.Params("id")
+
+	role := c.Locals("role_id").(string)
+	userID := c.Locals("user_id").(string)
+
+	ref, err := s.RefSvc.FindByID(ctx, achID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "not found"})
+	}
+
+	if role == constant.RoleMahasiswa {
+		st, _ := s.StudentSvc.FindByUserID(ctx, userID)
+		if st.ID != ref.StudentID {
+			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+		}
+	}
+
+	if role == constant.RoleDosenWali {
+		ok, _ := s.StudentSvc.IsMyStudent(ctx, userID, ref.StudentID)
+		if !ok {
+			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+		}
+	}
+
+	ach, err := s.MongoSvc.FindByID(ctx, ref.MongoAchievementID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "mongo not found"})
+	}
+
+	return c.JSON(ach)
+}
+
+func (s *AchievementUsecaseService) UpdateHTTP(c *fiber.Ctx) error {
+	ctx := context.Background()
+	achID := c.Params("id")
+
+	userID := c.Locals("user_id").(string)
+	role := c.Locals("role_id").(string)
+
+	ref, err := s.RefSvc.FindByID(ctx, achID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "not found"})
+	}
+
+	if role == constant.RoleMahasiswa {
+		st, _ := s.StudentSvc.FindByUserID(ctx, userID)
+		if st.ID != ref.StudentID {
+			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+		}
+	}
+
+	if ref.Status != "draft" {
+		return c.Status(400).JSON(fiber.Map{"error": "only draft can be updated"})
+	}
+
+	var body map[string]interface{}
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
+	}
+
+	err = s.MongoSvc.Update(ctx, ref.MongoAchievementID, body)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "updated"})
+}
+
+func (s *AchievementUsecaseService) DeleteHTTP(c *fiber.Ctx) error {
+	ctx := context.Background()
+	achID := c.Params("id")
+
+	role := c.Locals("role_id").(string)
+	userID := c.Locals("user_id").(string)
+
+	ref, err := s.RefSvc.FindByID(ctx, achID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "not found"})
+	}
+
+	if ref.Status != "draft" {
+		return c.Status(400).JSON(fiber.Map{"error": "only draft can be deleted"})
+	}
+
+	if role == constant.RoleMahasiswa {
+		st, _ := s.StudentSvc.FindByUserID(ctx, userID)
+		if st.ID != ref.StudentID {
+			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+		}
+	}
+
+	err = s.MongoSvc.SoftDelete(ctx, ref.MongoAchievementID)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	err = s.RefSvc.UpdateStatus(ctx, achID, "deleted", nil, nil, nil, nil)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "pg update failed"})
+	}
+
+	return c.JSON(fiber.Map{"message": "deleted"})
+}
+
+func (s *AchievementUsecaseService) HistoryHTTP(c *fiber.Ctx) error {
+	ctx := context.Background()
+	achID := c.Params("id")
+
+	role := c.Locals("role_id").(string)
+	userID := c.Locals("user_id").(string)
+
+	ref, err := s.RefSvc.FindByID(ctx, achID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "not found"})
+	}
+
+	if role == constant.RoleMahasiswa {
+		st, _ := s.StudentSvc.FindByUserID(ctx, userID)
+		if st == nil || st.ID != ref.StudentID {
+			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+		}
+	}
+
+	if role == constant.RoleDosenWali {
+		ok, _ := s.StudentSvc.IsMyStudent(ctx, userID, ref.StudentID)
+		if !ok {
+			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+		}
+	}
+
+	type HistoryItem struct {
+		Status string     `json:"status"`
+		At     time.Time  `json:"at"`
+		By     *string    `json:"by,omitempty"`
+		Note   *string    `json:"note,omitempty"`
+	}
+
+	history := []HistoryItem{
+		{
+			Status: "draft",
+			At:     ref.CreatedAt,
+		},
+	}
+
+	if ref.SubmittedAt != nil {
+		history = append(history, HistoryItem{
+			Status: "submitted",
+			At:     *ref.SubmittedAt,
+		})
+	}
+
+	if ref.VerifiedAt != nil {
+		history = append(history, HistoryItem{
+			Status: "verified",
+			At:     *ref.VerifiedAt,
+			By:     ref.VerifiedBy,
+		})
+	}
+
+	if ref.Status == "rejected" && ref.RejectionNote != nil {
+		history = append(history, HistoryItem{
+			Status: "rejected",
+			At:     ref.UpdatedAt,
+			Note:   ref.RejectionNote,
+		})
+	}
+
+	if ref.Status == "deleted" {
+		history = append(history, HistoryItem{
+			Status: "deleted",
+			At:     ref.UpdatedAt,
+		})
+	}
+
+	return c.JSON(history)
+}
+
+func (s *AchievementUsecaseService) AddAttachmentHTTP(c *fiber.Ctx) error {
+	ctx := context.Background()
+	achID := c.Params("id")
+
+	role := c.Locals("role_id").(string)
+	userID := c.Locals("user_id").(string)
+
+	ref, err := s.RefSvc.FindByID(ctx, achID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "not found"})
+	}
+
+	if role == constant.RoleMahasiswa {
+		st, _ := s.StudentSvc.FindByUserID(ctx, userID)
+		if st == nil || st.ID != ref.StudentID {
+			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+		}
+	}
+
+	type AttachReq struct {
+		FileName string `json:"fileName"`
+		FileURL  string `json:"fileUrl"`
+		FileType string `json:"fileType"`
+	}
+
+	var req AttachReq
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
+	}
+
+	if req.FileName == "" || req.FileURL == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "fileName and fileUrl are required"})
+	}
+
+	ach, err := s.MongoSvc.FindByID(ctx, ref.MongoAchievementID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "mongo not found"})
+	}
+
+	newFile := model.AchievementFile{
+		FileName:   req.FileName,
+		FileURL:    req.FileURL,
+		FileType:   req.FileType,
+		UploadedAt: time.Now(),
+	}
+
+	ach.Attachments = append(ach.Attachments, newFile)
+
+	err = s.MongoSvc.Update(ctx, ref.MongoAchievementID, map[string]interface{}{
+		"attachments": ach.Attachments,
+	})
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "attachment added"})
 }

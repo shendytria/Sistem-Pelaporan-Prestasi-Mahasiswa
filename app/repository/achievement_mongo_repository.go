@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 	"prestasi_mhs/app/model"
 	"prestasi_mhs/database"
 
@@ -48,4 +49,44 @@ func (r *AchievementMongoRepository) FindMany(ctx context.Context, ids []string)
 	}
 
 	return list, nil
+}
+
+func (r *AchievementMongoRepository) FindByID(ctx context.Context, id string) (*model.Achievement, error) {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
+	var ach model.Achievement
+	err = database.Mongo.Collection("achievements").FindOne(ctx, bson.M{"_id": oid}).Decode(&ach)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ach, nil
+}
+
+func (r *AchievementMongoRepository) Update(ctx context.Context, id string, data map[string]interface{}) error {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = database.Mongo.Collection("achievements").
+		UpdateOne(ctx, bson.M{"_id": oid}, bson.M{"$set": data})
+
+	return err
+}
+
+func (r *AchievementMongoRepository) SoftDelete(ctx context.Context, id string) error {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = database.Mongo.Collection("achievements").
+		UpdateOne(ctx, bson.M{"_id": oid}, bson.M{
+			"$set": bson.M{"deletedAt": time.Now()},
+		})
+	return err
 }

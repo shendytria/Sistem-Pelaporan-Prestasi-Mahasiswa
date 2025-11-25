@@ -85,35 +85,12 @@ func (r *AchievementReferenceRepository) FindAll(ctx context.Context) ([]model.A
 	return list, nil
 }
 
-func (r *AchievementReferenceRepository) UpdateStatus(ctx context.Context, id string, status string, verifiedAt *time.Time, verifiedBy *string, rejectionNote *string,) error {
-
-	const q = `
-        UPDATE achievement_references
-        SET status = $1,
-            verified_at = $2,
-            verified_by = $3,
-            rejection_note = $4,
-            updated_at = NOW()
-        WHERE id = $5
-    `
-
-	_, err := database.PG.Exec(ctx, q,
-		status,
-        verifiedAt,
-        verifiedBy,
-        rejectionNote,
-        id,
-	)
-
-	return err
-}
-
 func (r *AchievementReferenceRepository) FindByID(ctx context.Context, id string) (*model.AchievementReference, error) {
 
 	const q = `
-        SELECT id, student_id, mongo_achievement_id, status, created_at, updated_at
-        FROM achievement_references
-        WHERE id = $1
+        SELECT id, student_id, mongo_achievement_id, status, submitted_at, verified_at, verified_by, rejection_note, created_at, updated_at
+		FROM achievement_references
+		WHERE id = $1
     `
 
 	row := database.PG.QueryRow(ctx, q, id)
@@ -121,12 +98,10 @@ func (r *AchievementReferenceRepository) FindByID(ctx context.Context, id string
 	var ref model.AchievementReference
 
 	err := row.Scan(
-		&ref.ID,
-		&ref.StudentID,
-		&ref.MongoAchievementID,
-		&ref.Status,
-		&ref.CreatedAt,
-		&ref.UpdatedAt,
+		&ref.ID, &ref.StudentID, &ref.MongoAchievementID,
+		&ref.Status, &ref.SubmittedAt, &ref.VerifiedAt,
+		&ref.VerifiedBy, &ref.RejectionNote,
+		&ref.CreatedAt, &ref.UpdatedAt,
 	)
 
 	if err != nil {
@@ -136,3 +111,61 @@ func (r *AchievementReferenceRepository) FindByID(ctx context.Context, id string
 	return &ref, nil
 }
 
+func (r *AchievementReferenceRepository) FindByStudent(ctx context.Context, studentID string) ([]model.AchievementReference, error) {
+
+	const q = `
+        SELECT id, student_id, mongo_achievement_id, status, created_at, updated_at
+        FROM achievement_references
+        WHERE student_id::text = $1
+        ORDER BY created_at DESC
+    `
+
+	rows, err := database.PG.Query(ctx, q, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []model.AchievementReference
+
+	for rows.Next() {
+		var ref model.AchievementReference
+		if err := rows.Scan(
+			&ref.ID,
+			&ref.StudentID,
+			&ref.MongoAchievementID,
+			&ref.Status,
+			&ref.CreatedAt,
+			&ref.UpdatedAt,
+		); err == nil {
+			list = append(list, ref)
+		}
+	}
+
+	return list, nil
+}
+
+func (r *AchievementReferenceRepository) UpdateStatus(ctx context.Context, id string, status string, submittedAt *time.Time, verifiedAt *time.Time, verifiedBy *string, rejectionNote *string, ) error {
+
+	const q = `
+        UPDATE achievement_references
+        SET status = $1,
+            submitted_at = $2,
+            verified_at = $3,
+            verified_by = $4,
+            rejection_note = $5,
+            updated_at = NOW()
+        WHERE id = $6
+    `
+
+	_, err := database.PG.Exec(ctx, q,
+		status,
+		submittedAt,
+		verifiedAt,
+		verifiedBy,
+		rejectionNote,
+		id,
+	)
+
+	return err
+}

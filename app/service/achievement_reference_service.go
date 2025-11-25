@@ -27,10 +27,14 @@ func (s *AchievementReferenceService) FindAll(ctx context.Context) ([]model.Achi
     return s.Repo.FindAll(ctx)
 }
 
+func (s *AchievementReferenceService) FindByStudent(ctx context.Context, studentID string) ([]model.AchievementReference, error) {
+	return s.Repo.FindByStudent(ctx, studentID)
+}
+
 func (s *AchievementReferenceService) FindByID(ctx context.Context, id string) (*model.AchievementReference, error) {
 	return s.Repo.FindByID(ctx, id)
 }
 
-func (s *AchievementReferenceService) UpdateStatus(ctx context.Context, id string, status string, verifiedAt *time.Time, verifiedBy *string, rejectionNote *string,) error {
-	return s.Repo.UpdateStatus(ctx, id, status, verifiedAt, verifiedBy, rejectionNote)
+func (s *AchievementReferenceService) UpdateStatus(ctx context.Context, id string, status string, submittedAt *time.Time, verifiedAt *time.Time, verifiedBy *string, rejectionNote *string,) error {
+	return s.Repo.UpdateStatus(ctx, id, status, submittedAt, verifiedAt, verifiedBy, rejectionNote)
 }
