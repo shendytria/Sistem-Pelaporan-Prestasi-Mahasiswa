@@ -22,8 +22,11 @@ func main() {
 
 	userRepo := repository.NewUserRepository()
 	studentRepo := repository.NewStudentRepository()
+	studentSvc := service.NewStudentService(studentRepo)
 	achMongoRepo := repository.NewAchievementMongoRepository()
 	achRefRepo := repository.NewAchievementReferenceRepository()
+	lecturerRepo := repository.NewLecturerRepository()
+	lecturerSvc := service.NewLecturerService(lecturerRepo)
 
 	authSvc := service.NewAuthService(userRepo)
 	userSvc := service.NewUserService(userRepo)
@@ -33,7 +36,7 @@ func main() {
 
 	app.Use(logger.New())
 
-	route.RegisterRoutes(app, authSvc, userSvc,achUsecase)
+	route.RegisterRoutes(app, authSvc, userSvc, achUsecase, studentSvc, lecturerSvc)
 
 	log.Println("Server running on port", config.C.AppPort)
 	log.Fatal(app.Listen(":" + config.C.AppPort))
