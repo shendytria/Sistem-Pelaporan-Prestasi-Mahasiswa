@@ -33,29 +33,75 @@ func (s *StudentService) FindByID(ctx context.Context, id string) (*model.Studen
 }
 
 func (s *StudentService) ListHTTP(c *fiber.Ctx) error {
-	res, err := s.FindAll(context.Background())
+	ctx := context.Background()
+
+	roleIfc := c.Locals("role")
+	userIDIfc := c.Locals("user_id")
+	if roleIfc == nil || userIDIfc == nil {
+		return c.Status(401).JSON(fiber.Map{"error": "unauthorized"})
+	}
+
+	role := roleIfc.(string)
+	userID := userIDIfc.(string)
+
+	allStudents, err := s.FindAll(ctx)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
-	return c.JSON(res)
+
+	var filtered []model.Student
+
+	if role == "Admin" {
+		filtered = allStudents
+	} else if role == "Mahasiswa" {
+		st, _ := s.FindByUserID(ctx, userID)
+		if st != nil {
+			filtered = append(filtered, *st)
+		}
+	} else if role == "Dosen Wali" {
+		for _, st := range allStudents {
+			ok, _ := s.IsMyStudent(ctx, userID, st.ID)
+			if ok {
+				filtered = append(filtered, st)
+			}
+		}
+	} else {
+		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+	}
+
+	return c.JSON(filtered)
 }
 
 func (s *StudentService) DetailHTTP(c *fiber.Ctx) error {
+	ctx := context.Background()
 	id := c.Params("id")
-	res, err := s.FindByID(context.Background(), id)
-	if err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "not found"})
-	}
-	return c.JSON(res)
-}
 
-func (s *StudentService) MeHTTP(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
-	res, err := s.FindByUserID(context.Background(), userID)
-	if err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "student profile not found"})
+	roleIfc := c.Locals("role")
+	userIDIfc := c.Locals("user_id")
+	if roleIfc == nil || userIDIfc == nil {
+		return c.Status(401).JSON(fiber.Map{"error": "unauthorized"})
 	}
-	return c.JSON(res)
+
+	role := roleIfc.(string)
+	userID := userIDIfc.(string)
+
+	st, err := s.FindByID(ctx, id)
+	if err != nil || st == nil {
+		return c.Status(404).JSON(fiber.Map{"error": "student not found"})
+	}
+
+	if role == "Admin" {
+		return c.JSON(st)
+	} else if role == "Dosen Wali" {
+		ok, _ := s.IsMyStudent(ctx, userID, st.ID)
+		if ok {
+			return c.JSON(st)
+		} else {
+			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+		}
+	} else {
+		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+	}
 }
 
 func (s *StudentService) UpdateAdvisorHTTP(c *fiber.Ctx) error {

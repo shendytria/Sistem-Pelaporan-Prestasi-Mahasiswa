@@ -4,7 +4,6 @@ import (
 	"context"
 	"prestasi_mhs/app/model"
 	"prestasi_mhs/app/repository"
-	"prestasi_mhs/constant"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -36,10 +35,10 @@ func (s *LecturerService) ListHTTP(c *fiber.Ctx) error {
 func (s *LecturerService) AdviseesHTTP(c *fiber.Ctx) error {
     ctx := context.Background()
     lecturerID := c.Params("id")
-    role := c.Locals("role_id").(string)
+    role := c.Locals("role").(string)
     userID := c.Locals("user_id").(string)
 
-    if role == constant.RoleDosenWali {
+    if role == "Dosen Wali" {
         myLecturer, err := s.FindByUserID(ctx, userID)
         if err != nil || myLecturer == nil {
             return c.Status(403).JSON(fiber.Map{"error": "forbidden"})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"prestasi_mhs/app/model"
 	"prestasi_mhs/app/repository"
+	"prestasi_mhs/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -49,17 +50,22 @@ func (s *UserService) CreateHTTP(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid body"})
 	}
 
-	user := model.User{
+	hashed, err := utils.HashPassword(req.Password)
+    if err != nil {
+        return c.Status(500).JSON(fiber.Map{"error": "Failed to hash password"})
+    }
+
+    user := model.User{
         ID:           uuid.NewString(),
         Username:     req.Username,
         Email:        req.Email,
         FullName:     req.FullName,
         RoleID:       req.RoleID,
-        PasswordHash: req.Password,
-		IsActive:     true,
+        PasswordHash: hashed, 
+        IsActive:     true,
     }
 
-    err := s.Repo.Create(context.Background(), &user)
+    err = s.Repo.Create(context.Background(), &user)
     if err != nil {
         return c.Status(500).JSON(fiber.Map{"error": err.Error()})
     }

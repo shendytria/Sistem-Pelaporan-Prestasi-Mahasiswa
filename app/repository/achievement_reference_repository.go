@@ -145,7 +145,7 @@ func (r *AchievementReferenceRepository) FindByStudent(ctx context.Context, stud
 	return list, nil
 }
 
-func (r *AchievementReferenceRepository) UpdateStatus(ctx context.Context, id string, status string, submittedAt *time.Time, verifiedAt *time.Time, verifiedBy *string, rejectionNote *string, ) error {
+func (r *AchievementReferenceRepository) UpdateStatus(ctx context.Context, id string, status string, submittedAt *time.Time, verifiedAt *time.Time, verifiedBy *string, rejectionNote *string) error {
 
 	const q = `
         UPDATE achievement_references

@@ -8,33 +8,35 @@ import (
 )
 
 func JWT() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		bearer := c.Get("Authorization")
-		if bearer == "" {
-			return c.Status(401).JSON(fiber.Map{
-				"error": "missing token",
-			})
-		}
+    return func(c *fiber.Ctx) error {
+        bearer := c.Get("Authorization")
+        if bearer == "" {
+            return c.Status(401).JSON(fiber.Map{"error": "missing token"})
+        }
 
-		tokenStr := strings.TrimPrefix(bearer, "Bearer ")
+        tokenStr := strings.TrimPrefix(bearer, "Bearer ")
+        token, claims, err := utils.ParseJWT(tokenStr)
+        if err != nil || !token.Valid {
+            return c.Status(401).JSON(fiber.Map{"error": "invalid token"})
+        }
 
-		token, claims, err := utils.ParseJWT(tokenStr)
-		if err != nil || !token.Valid {
-			return c.Status(401).JSON(fiber.Map{
-				"error": "invalid token",
-			})
-		}
+        if v, ok := claims["user_id"].(string); ok {
+            c.Locals("user_id", v)
+        } else {
+            c.Locals("user_id", "")
+        }
+        if v, ok := claims["role"].(string); ok {
+            c.Locals("role", v)
+        }
+        c.Locals("permissions", claims["permissions"])
 
-		c.Locals("user_id", claims["user_id"])
-		c.Locals("role_id", claims["role_id"])
-
-		return c.Next()
-	}
+        return c.Next()
+    }
 }
 
 func Role(allowedRoles ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		roleID, ok := c.Locals("role_id").(string)
+		role, ok := c.Locals("role").(string)
 		if !ok {
 			return c.Status(401).JSON(fiber.Map{
 				"error": "invalid token data",
@@ -42,7 +44,7 @@ func Role(allowedRoles ...string) fiber.Handler {
 		}
 
 		for _, r := range allowedRoles {
-			if roleID == r {
+			if role == r {
 				return c.Next()
 			}
 		}

@@ -148,3 +148,38 @@ func (r *UserRepository) UpdateRole(ctx context.Context, id string, roleID strin
 	_, err := database.PG.Exec(ctx, q, roleID, id)
 	return err
 }
+
+func (r *UserRepository) GetPermissionsByRole(ctx context.Context, roleID string) ([]string, error) {
+	const q = `
+		SELECT p.name
+		FROM role_permissions rp
+		JOIN permissions p ON p.id = rp.permission_id
+		WHERE rp.role_id = $1
+	`
+	rows, err := database.PG.Query(ctx, q, roleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var perms []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		perms = append(perms, name)
+	}
+
+	return perms, nil
+}
+
+func (r *UserRepository) GetRoleName(ctx context.Context, roleID string) (string, error) {
+	const q = `SELECT name FROM roles WHERE id = $1`
+	var name string
+	err := database.PG.QueryRow(ctx, q, roleID).Scan(&name)
+	if err != nil {
+		return "", err
+	}
+	return name, nil
+}
