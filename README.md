@@ -168,7 +168,7 @@ MongoDB (Dokumen)
 ### 🏗️ 7. Cara Menjalankan Project
 1. Clone Repository
 ````md
-git clone <repo-url>
+git clone <https://github.com/shendytria/Sistem-Pelaporan-Prestasi-Mahasiswa.git>
 cd prestasi_mhs
 ````
 2. Install Dependencies
@@ -196,4 +196,4 @@ Masing-masing mencakup:
 - Achievement test
 - Student test
 - Lecturer test
-- Report testt
+- Report test
