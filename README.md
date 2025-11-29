@@ -99,7 +99,7 @@ Authorization: Bearer <token>
 | DELETE  | /api/users/:id   |	 Hapus user   |
 | PUT  | /api/users/:id/role   |	 Update peran user   |
 
-### C. Achievements (Prestasi Mahasiswa)
+### C. Achievements
 🔸 Admin
 - Melihat semua prestasi
 
@@ -175,12 +175,10 @@ cd prestasi_mhs
 ````bash
 go mod tidy
 ````
-
 3. Jalankan Server
 ````bash
 go run main.go
 ````
-
 4. Server Running
 ````bash
 http://localhost:8080
@@ -195,6 +193,7 @@ Tersedia pengujian untuk:
 Masing-masing mencakup:
 - Auth test
 - Users test
+- Achievement test
 - Student test
 - Lecturer test
-- Achievement test
+- Report testt
