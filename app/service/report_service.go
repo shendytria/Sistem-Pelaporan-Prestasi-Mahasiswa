@@ -22,14 +22,14 @@ func NewReportService(reportRepo *repository.ReportRepository, studentRepo *repo
 }
 
 func (s *ReportService) StatisticsHTTP(c *fiber.Ctx) error {
-    ctx := context.Background()
-    role := c.Locals("role").(string)
-    userID := c.Locals("user_id").(string)
+	ctx := context.Background()
+	role := c.Locals("role").(string)
+	userID := c.Locals("user_id").(string)
 
-    var filter string
-    var args []interface{}
+	var filter string
+	var args []interface{}
 
-    if role == "Admin" {
+	if role == "Admin" {
 		filter = ""
 
 	} else if role == "Dosen Wali" {
@@ -37,7 +37,6 @@ func (s *ReportService) StatisticsHTTP(c *fiber.Ctx) error {
 		if err != nil || lecturer == nil {
 			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 		}
-
 		filter = " WHERE student_id IN (SELECT id FROM students WHERE advisor_id = $1)"
 		args = append(args, lecturer.ID)
 
@@ -46,7 +45,6 @@ func (s *ReportService) StatisticsHTTP(c *fiber.Ctx) error {
 		if err != nil || student == nil {
 			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 		}
-
 		filter = " WHERE student_id = $1"
 		args = append(args, student.ID)
 
@@ -63,12 +61,12 @@ func (s *ReportService) StatisticsHTTP(c *fiber.Ctx) error {
 }
 
 func (s *ReportService) StudentReportHTTP(c *fiber.Ctx) error {
-    ctx := context.Background()
-    role := c.Locals("role").(string)
-    userID := c.Locals("user_id").(string)
-    targetStudent := c.Params("id")
+	ctx := context.Background()
+	role := c.Locals("role").(string)
+	userID := c.Locals("user_id").(string)
+	targetStudent := c.Params("id")
 
-    if role == "Mahasiswa" {
+	if role == "Mahasiswa" {
 		student, err := s.StudentRepo.FindByUserID(ctx, userID)
 		if err != nil || student == nil || student.ID != targetStudent {
 			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -86,6 +84,7 @@ func (s *ReportService) StudentReportHTTP(c *fiber.Ctx) error {
 		}
 
 	} else if role == "Admin" {
+
 	} else {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
