@@ -9,11 +9,21 @@ import (
 )
 
 type StudentService struct {
-	Repo *repository.StudentRepository
+    Repo     *repository.StudentRepository
+    RefRepo  *repository.AchievementReferenceRepository
+    MongoRepo *repository.AchievementMongoRepository
 }
 
-func NewStudentService(repo *repository.StudentRepository) *StudentService {
-	return &StudentService{Repo: repo}
+func NewStudentService(
+    studentRepo *repository.StudentRepository,
+    refRepo *repository.AchievementReferenceRepository,
+    mongoRepo *repository.AchievementMongoRepository,
+) *StudentService {
+    return &StudentService{
+        Repo:     studentRepo,
+        RefRepo:  refRepo,
+        MongoRepo: mongoRepo,
+    }
 }
 
 func (s *StudentService) FindByUserID(ctx context.Context, userID string) (*model.Student, error) {
@@ -53,11 +63,6 @@ func (s *StudentService) ListHTTP(c *fiber.Ctx) error {
 
 	if role == "Admin" {
 		filtered = allStudents
-	} else if role == "Mahasiswa" {
-		st, _ := s.FindByUserID(ctx, userID)
-		if st != nil {
-			filtered = append(filtered, *st)
-		}
 	} else if role == "Dosen Wali" {
 		for _, st := range allStudents {
 			ok, _ := s.IsMyStudent(ctx, userID, st.ID)
@@ -104,6 +109,36 @@ func (s *StudentService) DetailHTTP(c *fiber.Ctx) error {
 	}
 }
 
+func (s *StudentService) ListByStudentHTTP(c *fiber.Ctx) error {
+    ctx := context.Background()
+    studentID := c.Params("id")
+
+    role := c.Locals("role").(string)
+    userID := c.Locals("user_id").(string)
+
+    ok, err := s.IsMyStudent(ctx, userID, studentID)
+    if role == "Dosen Wali" {
+        if err != nil {
+            return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+        }
+        if !ok {
+            return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+        }
+    }
+
+    ids, err := s.RefRepo.FindMongoIDsByStudent(ctx, studentID)
+    if err != nil {
+        return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+    }
+
+    achs, err := s.MongoRepo.FindMany(ctx, ids)
+    if err != nil {
+        return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+    }
+
+    return c.JSON(achs)
+}
+
 func (s *StudentService) UpdateAdvisorHTTP(c *fiber.Ctx) error {
 	studentID := c.Params("id")
 
@@ -124,3 +159,4 @@ func (s *StudentService) UpdateAdvisorHTTP(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"message": "advisor updated"})
 }
+

@@ -14,6 +14,7 @@ func RegisterRoutes(
 	achSvc *service.AchievementUsecaseService,
 	studentSvc *service.StudentService,
 	lecturerSvc *service.LecturerService,
+	reportSvc *service.ReportService,
 ) {
 
 	api := app.Group("/api")
@@ -43,14 +44,18 @@ func RegisterRoutes(
 	ach.Post("/:id/attachments", middleware.Role("Mahasiswa", "Admin"), achSvc.AddAttachmentHTTP)
 
 	students := api.Group("/students", middleware.JWT())
-	students.Get("/", middleware.Role("Admin", "Mahasiswa", "Dosen Wali"), studentSvc.ListHTTP)
+	students.Get("/", middleware.Role("Admin", "Dosen Wali"), studentSvc.ListHTTP)
 	students.Get("/:id", middleware.Role("Admin", "Dosen Wali"), studentSvc.DetailHTTP)
-	students.Get("/:id/achievements", middleware.Role("Admin", "Dosen Wali"), achSvc.ListByStudentHTTP)//boleh ga?
+	students.Get("/:id/achievements", middleware.Role("Admin", "Dosen Wali"), studentSvc.ListByStudentHTTP)
 	students.Put("/:id/advisor", middleware.Role("Admin"), studentSvc.UpdateAdvisorHTTP)
 
 	lect := api.Group("/lecturers", middleware.JWT())
-	lect.Get("/", middleware.Role("Admin"), lecturerSvc.ListHTTP)//harusnya semua bisa akses, namun masih bingung
+	lect.Get("/", middleware.Role("Admin", "Mahasiswa"), lecturerSvc.ListHTTP)
 	lect.Get("/:id/advisees", middleware.Role("Admin", "Dosen Wali"), lecturerSvc.AdviseesHTTP)
+
+	reports := api.Group("/reports", middleware.JWT())
+	reports.Get("/statistics", middleware.Role("Admin", "Dosen Wali", "Mahasiswa"), reportSvc.StatisticsHTTP,)
+	reports.Get("/student/:id", middleware.Role("Admin", "Dosen Wali", "Mahasiswa"), reportSvc.StudentReportHTTP,)
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{

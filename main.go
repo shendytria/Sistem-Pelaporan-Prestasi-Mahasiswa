@@ -22,21 +22,24 @@ func main() {
 
 	userRepo := repository.NewUserRepository()
 	studentRepo := repository.NewStudentRepository()
-	studentSvc := service.NewStudentService(studentRepo)
 	achMongoRepo := repository.NewAchievementMongoRepository()
 	achRefRepo := repository.NewAchievementReferenceRepository()
 	lecturerRepo := repository.NewLecturerRepository()
+	reportRepo := repository.NewReportRepository()
+
+	studentSvc := service.NewStudentService(studentRepo, achRefRepo, achMongoRepo)
 	lecturerSvc := service.NewLecturerService(lecturerRepo)
 
 	authSvc := service.NewAuthService(userRepo)
 	userSvc := service.NewUserService(userRepo)
 	achUsecase := service.NewAchievementUsecaseService(achMongoRepo, achRefRepo, studentRepo)
+	reportSvc := service.NewReportService(reportRepo, studentRepo, lecturerRepo)
 
 	app := fiber.New()
 
 	app.Use(logger.New())
 
-	route.RegisterRoutes(app, authSvc, userSvc, achUsecase, studentSvc, lecturerSvc)
+	route.RegisterRoutes(app, authSvc, userSvc, achUsecase, studentSvc, lecturerSvc, reportSvc)
 
 	log.Println("Server running on port", config.C.AppPort)
 	log.Fatal(app.Listen(":" + config.C.AppPort))

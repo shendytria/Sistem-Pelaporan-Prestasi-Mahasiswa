@@ -6,10 +6,71 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"prestasi_mhs/app/model"
 	"prestasi_mhs/app/repository"
 )
+
+type AchievementMongoService struct {
+	Repo *repository.AchievementMongoRepository
+}
+
+func NewAchievementMongoService(repo *repository.AchievementMongoRepository) *AchievementMongoService {
+	return &AchievementMongoService{Repo: repo}
+}
+
+func (s *AchievementMongoService) Insert(ctx context.Context, a *model.Achievement) (primitive.ObjectID, error) {
+	return s.Repo.Insert(ctx, a)
+}
+
+func (s *AchievementMongoService) FindMany(ctx context.Context, ids []string) ([]model.Achievement, error) {
+	return s.Repo.FindMany(ctx, ids)
+}
+
+func (s *AchievementMongoService) FindByID(ctx context.Context, id string) (*model.Achievement, error) {
+	return s.Repo.FindByID(ctx, id)
+}
+
+func (s *AchievementMongoService) Update(ctx context.Context, id string, data map[string]interface{}) error {
+	return s.Repo.Update(ctx, id, data)
+}
+
+func (s *AchievementMongoService) SoftDelete(ctx context.Context, id string) error {
+	return s.Repo.SoftDelete(ctx, id)
+}
+
+type AchievementReferenceService struct {
+	Repo *repository.AchievementReferenceRepository
+}
+
+func NewAchievementReferenceService(repo *repository.AchievementReferenceRepository) *AchievementReferenceService {
+	return &AchievementReferenceService{Repo: repo}
+}
+
+func (s *AchievementReferenceService) Insert(ctx context.Context, ref *model.AchievementReference) error {
+	return s.Repo.Insert(ctx, ref)
+}
+
+func (s *AchievementReferenceService) FindMongoIDsByStudent(ctx context.Context, studentID string) ([]string, error) {
+	return s.Repo.FindMongoIDsByStudent(ctx, studentID)
+}
+
+func (s *AchievementReferenceService) FindAll(ctx context.Context) ([]model.AchievementReference, error) {
+	return s.Repo.FindAll(ctx)
+}
+
+func (s *AchievementReferenceService) FindByID(ctx context.Context, id string) (*model.AchievementReference, error) {
+	return s.Repo.FindByID(ctx, id)
+}
+
+func (s *AchievementReferenceService) FindByStudent(ctx context.Context, studentID string) ([]model.AchievementReference, error) {
+	return s.Repo.FindByStudent(ctx, studentID)
+}
+
+func (s *AchievementReferenceService) UpdateStatus(ctx context.Context, id string, status string, submittedAt *time.Time, verifiedAt *time.Time, verifiedBy *string, rejectionNote *string) error {
+	return s.Repo.UpdateStatus(ctx, id, status, submittedAt, verifiedAt, verifiedBy, rejectionNote)
+}
 
 type AchievementUsecaseService struct {
 	MongoSvc   *AchievementMongoService
@@ -26,38 +87,8 @@ func NewAchievementUsecaseService(
 	return &AchievementUsecaseService{
 		MongoSvc:   NewAchievementMongoService(mongoRepo),
 		RefSvc:     NewAchievementReferenceService(refRepo),
-		StudentSvc: NewStudentService(studentRepo),
+		StudentSvc: NewStudentService(studentRepo, refRepo, mongoRepo),
 	}
-}
-
-func (s *AchievementUsecaseService) ListByStudentHTTP(c *fiber.Ctx) error {
-	ctx := context.Background()
-	studentID := c.Params("id")
-
-	role := c.Locals("role").(string)
-	userID := c.Locals("user_id").(string)
-
-	if role == "Dosen Wali" {
-		ok, err := s.StudentSvc.IsMyStudent(ctx, userID, studentID)
-		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
-		}
-		if !ok {
-			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-		}
-	}
-
-	ids, err := s.RefSvc.FindMongoIDsByStudent(ctx, studentID)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
-	}
-
-	achs, err := s.MongoSvc.FindMany(ctx, ids)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
-	}
-
-	return c.JSON(achs)
 }
 
 func (s *AchievementUsecaseService) ListHTTP(c *fiber.Ctx) error {

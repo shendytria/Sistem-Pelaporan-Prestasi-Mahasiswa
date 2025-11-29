@@ -96,3 +96,12 @@ func (r *StudentRepository) UpdateAdvisor(ctx context.Context, studentID string,
 	_, err := database.PG.Exec(ctx, q, lecturerID, studentID)
 	return err
 }
+
+func (r *StudentRepository) CheckAdvisor(ctx context.Context, lecturerID, studentID string) (bool, error) {
+	const q = `SELECT COUNT(*) FROM students WHERE id = $1 AND advisor_id = $2`
+	var count int
+	if err := database.PG.QueryRow(ctx, q, studentID, lecturerID).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

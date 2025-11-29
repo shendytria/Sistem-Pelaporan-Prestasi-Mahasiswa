@@ -25,11 +25,37 @@ func (s *LecturerService) FindAdvisees(ctx context.Context, lecturerID string) (
 }
 
 func (s *LecturerService) ListHTTP(c *fiber.Ctx) error {
-	data, err := s.Repo.FindAll(context.Background())
-	if err != nil { 
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()}) 
-	}
-	return c.JSON(data)
+    ctx := context.Background()
+    role := c.Locals("role").(string)
+    userID := c.Locals("user_id").(string)
+
+    if role == "Admin" {
+        data, err := s.Repo.FindAll(ctx)
+        if err != nil {
+            return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+        }
+        return c.JSON(data)
+    }
+
+    if role == "Mahasiswa" {
+        student, err := s.Repo.FindStudentByUserID(ctx, userID)
+        if err != nil || student == nil {
+            return c.Status(404).JSON(fiber.Map{"error": "student profile not found"})
+        }
+
+        if student.AdvisorID == "" {
+            return c.Status(404).JSON(fiber.Map{"error": "advisor not assigned"})
+        }
+
+        lecturer, err := s.Repo.FindByID(ctx, student.AdvisorID)
+        if err != nil || lecturer == nil {
+            return c.Status(404).JSON(fiber.Map{"error": "advisor not found"})
+        }
+
+        return c.JSON(lecturer)
+    }
+
+    return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 }
 
 func (s *LecturerService) AdviseesHTTP(c *fiber.Ctx) error {

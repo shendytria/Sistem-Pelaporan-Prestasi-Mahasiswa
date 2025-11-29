@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"github.com/google/uuid"
 	"prestasi_mhs/app/repository"
 	"prestasi_mhs/utils"
@@ -21,7 +20,6 @@ func NewAuthService(userRepo *repository.UserRepository) *AuthService {
 }
 
 func (s *AuthService) LoginHTTP(c *fiber.Ctx) error {
-
 	type LoginReq struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -33,48 +31,40 @@ func (s *AuthService) LoginHTTP(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
 	}
 
-	token, err := s.Login(context.Background(), req.Username, req.Password)
-	if err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": err.Error()})
-	}
+	ctx := context.Background()
 
-	return c.JSON(fiber.Map{"token": token})
-}
-
-func (s *AuthService) Login(ctx context.Context, username, password string) (map[string]interface{}, error) {
-
-	user, err := s.UserSvc.FindByUsername(ctx, username)
+	user, err := s.UserSvc.FindByUsername(ctx, req.Username)
 	if err != nil || user == nil {
-		return nil, errors.New("user not found")
+		return c.Status(401).JSON(fiber.Map{"error": "user not found"})
 	}
 
-	if !utils.CheckPasswordHash(password, user.PasswordHash) {
-		return nil, errors.New("invalid password")
+	if !utils.CheckPasswordHash(req.Password, user.PasswordHash) {
+		return c.Status(401).JSON(fiber.Map{"error": "invalid password"})
 	}
 
 	perms, err := s.UserSvc.Repo.GetPermissionsByRole(ctx, user.RoleID)
 	if err != nil {
-		return nil, err
+		return c.Status(500).JSON(fiber.Map{"error": "failed to load permissions"})
 	}
 
 	roleName, err := s.UserSvc.Repo.GetRoleName(ctx, user.RoleID)
 	if err != nil {
-		return nil, err
+		return c.Status(500).JSON(fiber.Map{"error": "failed to load role name"})
 	}
 
 	token, err := utils.GenerateJWT(user.ID, user.RoleID, roleName, perms)
 	if err != nil {
-		return nil, err
+		return c.Status(500).JSON(fiber.Map{"error": "failed to generate token"})
 	}
 
 	refreshToken := uuid.NewString()
 
-	return map[string]interface{}{
+	return c.JSON(fiber.Map{
 		"status": "success",
-		"data": map[string]interface{}{
+		"data": fiber.Map{
 			"token":        token,
 			"refreshToken": refreshToken,
-			"user": map[string]interface{}{
+			"user": fiber.Map{
 				"id":          user.ID,
 				"username":    user.Username,
 				"fullName":    user.FullName,
@@ -82,7 +72,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (map
 				"permissions": perms,
 			},
 		},
-	}, nil
+	})
 }
 
 func (s *AuthService) RefreshHTTP(c *fiber.Ctx) error {

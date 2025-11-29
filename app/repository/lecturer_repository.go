@@ -62,3 +62,30 @@ func (r *LecturerRepository) FindByUserID(ctx context.Context, userID string) (*
 	}
 	return &l, nil
 }
+
+func (r *LecturerRepository) FindStudentByUserID(ctx context.Context, userID string) (*model.Student, error) {
+	const q = `
+		SELECT id, user_id, student_id, program_study, academic_year, advisor_id
+		FROM students
+		WHERE user_id = $1
+		LIMIT 1
+	`
+	row := database.PG.QueryRow(ctx, q, userID)
+
+	var s model.Student
+	if err := row.Scan(&s.ID, &s.UserID, &s.StudentID, &s.ProgramStudy, &s.AcademicYear, &s.AdvisorID); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func (r *LecturerRepository) FindByID(ctx context.Context, lecturerID string) (*model.Lecturer, error) {
+	const q = `SELECT id, user_id, lecturer_id, department, created_at FROM lecturers WHERE id=$1 LIMIT 1`
+	row := database.PG.QueryRow(ctx, q, lecturerID)
+
+	var l model.Lecturer
+	if err := row.Scan(&l.ID, &l.UserID, &l.LecturerID, &l.Department, &l.CreatedAt); err != nil {
+		return nil, err
+	}
+	return &l, nil
+}
