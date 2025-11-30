@@ -92,45 +92,73 @@ func NewAchievementUsecaseService(
 }
 
 func (s *AchievementUsecaseService) ListHTTP(c *fiber.Ctx) error {
-	ctx := context.Background()
+    ctx := context.Background()
 
-	role := c.Locals("role").(string)
-	userID := c.Locals("user_id").(string)
+    role := c.Locals("role").(string)
+    userID := c.Locals("user_id").(string)
 
-	refs, err := s.RefSvc.FindAll(ctx)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
-	}
+    page := c.QueryInt("page", 1)
+    limit := c.QueryInt("limit", 10)
+    if page < 1 { page = 1 }
+    if limit < 1 { limit = 10 }
+    offset := (page - 1) * limit
 
-	var filteredRefs []model.AchievementReference
+    refs, err := s.RefSvc.FindAll(ctx)
+    if err != nil {
+        return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+    }
 
-	for _, r := range refs {
-		if role == "Mahasiswa" {
-			st, _ := s.StudentSvc.FindByUserID(ctx, userID)
-			if st != nil && st.ID == r.StudentID {
-				filteredRefs = append(filteredRefs, r)
-			}
-		} else if role == "Dosen Wali" {
-			ok, _ := s.StudentSvc.IsMyStudent(ctx, userID, r.StudentID)
-			if ok {
-				filteredRefs = append(filteredRefs, r)
-			}
-		} else if role == "Admin" {
-			filteredRefs = append(filteredRefs, r)
-		}
-	}
+    var filteredRefs []model.AchievementReference
+    for _, r := range refs {
+        if role == "Mahasiswa" {
+            st, _ := s.StudentSvc.FindByUserID(ctx, userID)
+            if st != nil && st.ID == r.StudentID {
+                filteredRefs = append(filteredRefs, r)
+            }
+        } else if role == "Dosen Wali" {
+            ok, _ := s.StudentSvc.IsMyStudent(ctx, userID, r.StudentID)
+            if ok {
+                filteredRefs = append(filteredRefs, r)
+            }
+        } else if role == "Admin" {
+            filteredRefs = append(filteredRefs, r)
+        }
+    }
 
-	var ids []string
-	for _, r := range filteredRefs {
-		ids = append(ids, r.MongoAchievementID)
-	}
+    total := len(filteredRefs)
 
-	achs, err := s.MongoSvc.FindMany(ctx, ids)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
-	}
+    if offset >= total {
+        return c.JSON(fiber.Map{
+            "data":  []model.Achievement{},
+            "page":  page,
+            "limit": limit,
+            "total": total,
+            "pages": (total + limit - 1) / limit,
+        })
+    }
+    end := offset + limit
+    if end > total {
+        end = total
+    }
+    refsPage := filteredRefs[offset:end]
 
-	return c.JSON(achs)
+    var ids []string
+    for _, r := range refsPage {
+        ids = append(ids, r.MongoAchievementID)
+    }
+
+    achs, err := s.MongoSvc.FindMany(ctx, ids)
+    if err != nil {
+        return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+    }
+
+    return c.JSON(fiber.Map{
+        "data":  achs,
+        "page":  page,
+        "limit": limit,
+        "total": total,
+        "pages": (total + limit - 1) / limit,
+    })
 }
 
 func (s *AchievementUsecaseService) DetailHTTP(c *fiber.Ctx) error {
@@ -360,10 +388,6 @@ func (s *AchievementUsecaseService) VerifyHTTP(c *fiber.Ctx) error {
 	role := c.Locals("role").(string)
 	userID := c.Locals("user_id").(string)
 
-	if role == "Mahasiswa" {
-		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-	}
-
 	ref, err := s.RefSvc.FindByID(ctx, achID)
 	if err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "not found"})
@@ -374,10 +398,14 @@ func (s *AchievementUsecaseService) VerifyHTTP(c *fiber.Ctx) error {
 		if !ok {
 			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 		}
+		if ref.Status != "submitted" {
+			return c.Status(400).JSON(fiber.Map{"error": "status is not submitted"})
+		}
 	}
 
-	if ref.Status != "submitted" {
-		return c.Status(400).JSON(fiber.Map{"error": "must be submitted first"})
+	if role == "Admin" {
+	} else if role != "Dosen Wali" {
+		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
 
 	now := time.Now()
@@ -409,19 +437,22 @@ func (s *AchievementUsecaseService) RejectHTTP(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "not found"})
 	}
 
-	if role == "Mahasiswa" {
-		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-	}
-
 	if role == "Dosen Wali" {
 		ok, _ := s.StudentSvc.IsMyStudent(ctx, userID, ref.StudentID)
 		if !ok {
 			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 		}
+		if ref.Status != "submitted" {
+			return c.Status(400).JSON(fiber.Map{"error": "status is not submitted"})
+		}
+	}
+
+	if role == "Admin" {
+	} else if role != "Dosen Wali" {
+		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
 
 	rejection := req.Reason
-
 	err = s.RefSvc.UpdateStatus(ctx, achID, "rejected", nil, nil, nil, &rejection)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})

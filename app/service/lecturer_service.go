@@ -29,22 +29,10 @@ func (s *LecturerService) ListHTTP(c *fiber.Ctx) error {
     role := c.Locals("role").(string)
     userID := c.Locals("user_id").(string)
 
-    if role == "Admin" {
-        data, err := s.Repo.FindAll(ctx)
-        if err != nil {
-            return c.Status(500).JSON(fiber.Map{"error": err.Error()})
-        }
-        return c.JSON(data)
-    }
-
     if role == "Mahasiswa" {
         student, err := s.Repo.FindStudentByUserID(ctx, userID)
         if err != nil || student == nil {
             return c.Status(404).JSON(fiber.Map{"error": "student profile not found"})
-        }
-
-        if student.AdvisorID == "" {
-            return c.Status(404).JSON(fiber.Map{"error": "advisor not assigned"})
         }
 
         lecturer, err := s.Repo.FindByID(ctx, student.AdvisorID)
@@ -52,10 +40,51 @@ func (s *LecturerService) ListHTTP(c *fiber.Ctx) error {
             return c.Status(404).JSON(fiber.Map{"error": "advisor not found"})
         }
 
-        return c.JSON(lecturer)
+        return c.JSON(fiber.Map{
+            "data":  []model.Lecturer{*lecturer},
+            "page":  1,
+            "limit": 1,
+            "total": 1,
+            "pages": 1,
+        })
     }
 
-    return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+    data, err := s.Repo.FindAll(ctx)
+    if err != nil {
+        return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+    }
+
+    page := c.QueryInt("page", 1)
+    limit := c.QueryInt("limit", 10)
+    if page < 1 { page = 1 }
+    if limit < 1 { limit = 10 }
+    offset := (page - 1) * limit
+
+    total := len(data)
+    if offset >= total {
+        return c.JSON(fiber.Map{
+            "data":  []model.Lecturer{},
+            "page":  page,
+            "limit": limit,
+            "total": total,
+            "pages": (total + limit - 1) / limit,
+        })
+    }
+
+    end := offset + limit
+    if end > total {
+        end = total
+    }
+
+    paged := data[offset:end]
+
+    return c.JSON(fiber.Map{
+        "data":  paged,
+        "page":  page,
+        "limit": limit,
+        "total": total,
+        "pages": (total + limit - 1) / limit,
+    })
 }
 
 func (s *LecturerService) AdviseesHTTP(c *fiber.Ctx) error {
@@ -66,10 +95,7 @@ func (s *LecturerService) AdviseesHTTP(c *fiber.Ctx) error {
 
     if role == "Dosen Wali" {
         myLecturer, err := s.FindByUserID(ctx, userID)
-        if err != nil || myLecturer == nil {
-            return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-        }
-        if myLecturer.ID != lecturerID {
+        if err != nil || myLecturer == nil || myLecturer.ID != lecturerID {
             return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
         }
     }
@@ -79,5 +105,35 @@ func (s *LecturerService) AdviseesHTTP(c *fiber.Ctx) error {
         return c.Status(500).JSON(fiber.Map{"error": err.Error()})
     }
 
-    return c.JSON(advisees)
+    page := c.QueryInt("page", 1)
+    limit := c.QueryInt("limit", 10)
+    if page < 1 { page = 1 }
+    if limit < 1 { limit = 10 }
+    offset := (page - 1) * limit
+
+    total := len(advisees)
+    if offset >= total {
+        return c.JSON(fiber.Map{
+            "data":  []map[string]interface{}{},
+            "page":  page,
+            "limit": limit,
+            "total": total,
+            "pages": (total + limit - 1) / limit,
+        })
+    }
+
+    end := offset + limit
+    if end > total {
+        end = total
+    }
+
+    paged := advisees[offset:end]
+
+    return c.JSON(fiber.Map{
+        "data":  paged,
+        "page":  page,
+        "limit": limit,
+        "total": total,
+        "pages": (total + limit - 1) / limit,
+    })
 }

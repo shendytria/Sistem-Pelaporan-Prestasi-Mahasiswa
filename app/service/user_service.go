@@ -23,11 +23,27 @@ func (s *UserService) FindByUsername(ctx context.Context, username string) (*mod
 }
 
 func (s *UserService) ListHTTP(c *fiber.Ctx) error {
-	users, err := s.Repo.FindAll(context.Background())
+	ctx := context.Background()
+
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", 10)
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+
+	users, total, err := s.Repo.FindAll(ctx, limit, offset)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
-	return c.JSON(users)
+
+	return c.JSON(fiber.Map{
+		"data":  users,
+		"page":  page,
+		"limit": limit,
+		"total": total,
+		"pages": (total + limit - 1) / limit,
+	})
 }
 
 func (s *UserService) DetailHTTP(c *fiber.Ctx) error {

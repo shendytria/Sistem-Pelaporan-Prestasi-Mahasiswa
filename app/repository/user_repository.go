@@ -45,34 +45,37 @@ func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*
 	return &user, nil
 }
 
-func (r *UserRepository) FindAll(ctx context.Context) ([]model.User, error) {
+func (r *UserRepository) FindAll(ctx context.Context, limit, offset int) ([]model.User, int, error) {
+	const qCount = `SELECT COUNT(*) FROM users`
+	var total int
+	if err := database.PG.QueryRow(ctx, qCount).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	
 	const q = `
 		SELECT id, username, email, full_name, role_id, is_active, created_at, updated_at
-		FROM users ORDER BY created_at DESC
+		FROM users
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
 	`
-
-	rows, err := database.PG.Query(ctx, q)
+	rows, err := database.PG.Query(ctx, q, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	var users []model.User
-
 	for rows.Next() {
 		var u model.User
-		err := rows.Scan(
+		rows.Scan(
 			&u.ID, &u.Username, &u.Email,
 			&u.FullName, &u.RoleID,
 			&u.IsActive, &u.CreatedAt, &u.UpdatedAt,
 		)
-		if err != nil {
-			return nil, err
-		}
 		users = append(users, u)
 	}
 
-	return users, nil
+	return users, total, nil
 }
 
 func (r *UserRepository) FindByID(ctx context.Context, id string) (*model.User, error) {
