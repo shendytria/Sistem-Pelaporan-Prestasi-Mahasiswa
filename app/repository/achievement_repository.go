@@ -21,8 +21,8 @@ func (r *AchievementMongoRepository) Insert(ctx context.Context, a *model.Achiev
 	a.ID = primitive.NewObjectID()
 
 	now := time.Now()
-    a.CreatedAt = now
-    a.UpdatedAt = now
+	a.CreatedAt = now
+	a.UpdatedAt = now
 
 	_, err := database.Mongo.Collection("achievements").InsertOne(ctx, a)
 	return a.ID, err
@@ -73,13 +73,11 @@ func (r *AchievementMongoRepository) FindByID(ctx context.Context, id string) (*
 	return &ach, nil
 }
 
-func (r *AchievementMongoRepository) Update(ctx context.Context, id string, data map[string]interface{}) error {
+func (r *AchievementMongoRepository) Update(ctx context.Context, id string, data model.AchievementMongoUpdate) error {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return err
 	}
-
-	data["updatedAt"] = time.Now()
 
 	_, err = database.Mongo.Collection("achievements").
 		UpdateOne(ctx, bson.M{"_id": oid}, bson.M{"$set": data})
@@ -97,6 +95,38 @@ func (r *AchievementMongoRepository) SoftDelete(ctx context.Context, id string) 
 		UpdateOne(ctx, bson.M{"_id": oid},
 			bson.M{"$set": bson.M{"deletedAt": time.Now()}},
 		)
+
+	return err
+}
+
+func (r *AchievementMongoRepository) PushAttachment(ctx context.Context, id string, file model.AchievementFile) error {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = database.Mongo.Collection("achievements").UpdateOne(
+		ctx,
+		bson.M{
+			"_id":         oid,
+			"attachments": bson.M{"$eq": nil},
+		},
+		bson.M{
+			"$set": bson.M{"attachments": []model.AchievementFile{}},
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = database.Mongo.Collection("achievements").UpdateOne(
+		ctx,
+		bson.M{"_id": oid},
+		bson.M{
+			"$push": bson.M{"attachments": file},
+			"$set":  bson.M{"updatedAt": time.Now()},
+		},
+	)
 
 	return err
 }

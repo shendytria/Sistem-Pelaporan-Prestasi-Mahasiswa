@@ -105,3 +105,19 @@ func (r *StudentRepository) CheckAdvisor(ctx context.Context, lecturerID, studen
 	}
 	return count > 0, nil
 }
+
+func (r *LecturerRepository) FindStudentByUserID(ctx context.Context, userID string) (*model.Student, error) {
+	const q = `
+		SELECT id, user_id, student_id, program_study, academic_year, advisor_id
+		FROM students
+		WHERE user_id = $1
+		LIMIT 1
+	`
+	row := database.PG.QueryRow(ctx, q, userID)
+
+	var s model.Student
+	if err := row.Scan(&s.ID, &s.UserID, &s.StudentID, &s.ProgramStudy, &s.AcademicYear, &s.AdvisorID); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}

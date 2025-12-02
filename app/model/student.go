@@ -10,4 +10,5 @@ type Student struct {
 	AcademicYear string    `db:"academic_year"`
 	AdvisorID    string    `db:"advisor_id"`
 	CreatedAt    time.Time `db:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at"`
 }

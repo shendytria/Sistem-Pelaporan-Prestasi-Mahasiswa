@@ -4,6 +4,7 @@ import (
 	"context"
 	"prestasi_mhs/app/model"
 	"prestasi_mhs/app/repository"
+    "prestasi_mhs/middleware"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -20,11 +21,15 @@ func (s *LecturerService) FindByUserID(ctx context.Context, userID string) (*mod
 	return s.Repo.FindByUserID(ctx, userID)
 }
 
-func (s *LecturerService) FindAdvisees(ctx context.Context, lecturerID string) ([]map[string]interface{}, error) {
+func (s *LecturerService) FindAdvisees(ctx context.Context, lecturerID string) ([]model.Advisee, error) {
 	return s.Repo.FindAdvisees(ctx, lecturerID)
 }
 
-func (s *LecturerService) ListHTTP(c *fiber.Ctx) error {
+func (s *LecturerService) List(c *fiber.Ctx) error {
+    if !middleware.HasPermission(c, "read_achievement") {
+        return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+    }
+
     ctx := context.Background()
     role := c.Locals("role").(string)
     userID := c.Locals("user_id").(string)
@@ -56,8 +61,6 @@ func (s *LecturerService) ListHTTP(c *fiber.Ctx) error {
 
     page := c.QueryInt("page", 1)
     limit := c.QueryInt("limit", 10)
-    if page < 1 { page = 1 }
-    if limit < 1 { limit = 10 }
     offset := (page - 1) * limit
 
     total := len(data)
@@ -76,10 +79,8 @@ func (s *LecturerService) ListHTTP(c *fiber.Ctx) error {
         end = total
     }
 
-    paged := data[offset:end]
-
     return c.JSON(fiber.Map{
-        "data":  paged,
+        "data":  data[offset:end],
         "page":  page,
         "limit": limit,
         "total": total,
@@ -87,7 +88,11 @@ func (s *LecturerService) ListHTTP(c *fiber.Ctx) error {
     })
 }
 
-func (s *LecturerService) AdviseesHTTP(c *fiber.Ctx) error {
+func (s *LecturerService) Advisees(c *fiber.Ctx) error {
+    if !middleware.HasPermission(c, "verify_achievement") {
+        return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+    }
+
     ctx := context.Background()
     lecturerID := c.Params("id")
     role := c.Locals("role").(string)
@@ -107,14 +112,12 @@ func (s *LecturerService) AdviseesHTTP(c *fiber.Ctx) error {
 
     page := c.QueryInt("page", 1)
     limit := c.QueryInt("limit", 10)
-    if page < 1 { page = 1 }
-    if limit < 1 { limit = 10 }
     offset := (page - 1) * limit
 
     total := len(advisees)
     if offset >= total {
         return c.JSON(fiber.Map{
-            "data":  []map[string]interface{}{},
+            "data":  []model.Advisee{},
             "page":  page,
             "limit": limit,
             "total": total,
@@ -127,10 +130,8 @@ func (s *LecturerService) AdviseesHTTP(c *fiber.Ctx) error {
         end = total
     }
 
-    paged := advisees[offset:end]
-
     return c.JSON(fiber.Map{
-        "data":  paged,
+        "data":  advisees[offset:end],
         "page":  page,
         "limit": limit,
         "total": total,

@@ -14,118 +14,93 @@ type ReportRepository struct{}
 
 func NewReportRepository() *ReportRepository { return &ReportRepository{} }
 
-func (r *ReportRepository) GetStatistics(ctx context.Context, filterQuery string, args ...interface{}) (*model.StatisticResponse, error) {
-	var res model.StatisticResponse
+func (r *ReportRepository) GetStatistics(ctx context.Context, filterQuery string) (*model.StatisticResponse, error) {
+    var res model.StatisticResponse
 
-	const qStatus = `
-		SELECT status, COUNT(*)
-		FROM achievement_references
-		%s
-		GROUP BY status
-	`
-	rows1, err := database.PG.Query(ctx, fmt.Sprintf(qStatus, filterQuery), args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows1.Close()
+    const qStatus = `
+        SELECT status, COUNT(*)
+        FROM achievement_references
+        %s
+        GROUP BY status
+    `
+    rows1, err := database.PG.Query(ctx, fmt.Sprintf(qStatus, filterQuery))
+    if err != nil {
+        return nil, err
+    }
+    defer rows1.Close()
 
-	for rows1.Next() {
-		var status string
-		var count int
-		rows1.Scan(&status, &count)
-		res.TotalAchievements += count
-		if status == "verified" {
-			res.Verified = count
-		} else if status == "draft" {
-			res.Draft = count
-		} else if status == "submitted" {
-			res.Submitted = count
-		} else if status == "rejected" {
-			res.Rejected = count
-		}
-	}
+    for rows1.Next() {
+        var status string
+        var count int
+        rows1.Scan(&status, &count)
+        res.TotalAchievements += count
+        switch status {
+        case "verified":
+            res.Verified = count
+        case "draft":
+            res.Draft = count
+        case "submitted":
+            res.Submitted = count
+        case "rejected":
+            res.Rejected = count
+        }
+    }
 
-	studentIDs := []string{}
-	if filterQuery == "" {
-		rows, _ := database.PG.Query(ctx, `SELECT DISTINCT student_id FROM achievement_references`)
-		for rows.Next() {
-			var sid string
-			rows.Scan(&sid)
-			studentIDs = append(studentIDs, sid)
-		}
-	} else {
-		rows, _ := database.PG.Query(ctx, `SELECT DISTINCT student_id FROM achievement_references `+filterQuery, args...)
-		for rows.Next() {
-			var sid string
-			rows.Scan(&sid)
-			studentIDs = append(studentIDs, sid)
-		}
-	}
+    studentIDs := []string{}
+    rows, _ := database.PG.Query(ctx, `SELECT DISTINCT student_id FROM achievement_references `+filterQuery)
+    for rows.Next() {
+        var sid string
+        rows.Scan(&sid)
+        studentIDs = append(studentIDs, sid)
+    }
 
-	collection := database.Mongo.Collection("achievements")
+    collection := database.Mongo.Collection("achievements")
+    cursor, err := collection.Find(ctx, bson.M{"studentId": bson.M{"$in": studentIDs}})
+    if err != nil {
+        return nil, err
+    }
+    defer cursor.Close(ctx)
 
-	filter := bson.M{"studentId": bson.M{"$in": studentIDs}}
+    typeMap := map[string]int{}
+    periodMap := map[string]int{}
+    levelMap := map[string]int{}
+    scoreMap := map[string]struct{ points, count int }{}
 
-	cursor, err := collection.Find(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(ctx)
+    for cursor.Next(ctx) {
+        var a model.Achievement
+        cursor.Decode(&a)
 
-	type periodCount struct {
-		period string
-		count  int
-	}
-	periodMap := map[string]int{}
-	typeMap := map[string]int{}
-	levelMap := map[string]int{}
-	scoreMap := map[string]struct {
-		points int
-		count  int
-	}{}
+        typeMap[a.AchievementType]++
+        periodMap[a.Details.EventDate.Format("2006-01")]++
+        levelMap[a.Details.CompetitionLevel]++
 
-	for cursor.Next(ctx) {
-		var a model.Achievement
-		cursor.Decode(&a)
+        sc := scoreMap[a.StudentID]
+        sc.count++
+        sc.points += int(a.Points)
+        scoreMap[a.StudentID] = sc
+    }
 
-		typeMap[a.AchievementType]++
+    for t, c := range typeMap {
+        res.ByType = append(res.ByType, model.StatisticByType{Type: t, Count: c})
+    }
+    for p, c := range periodMap {
+        res.ByPeriod = append(res.ByPeriod, model.StatisticByPeriod{Period: p, Count: c})
+    }
+    for lv, c := range levelMap {
+        res.ByLevel = append(res.ByLevel, model.StatisticByLevel{Level: lv, Count: c})
+    }
+    for sid, sc := range scoreMap {
+        res.TopStudents = append(res.TopStudents, model.TopStudent{StudentID: sid, Count: sc.count, Points: sc.points})
+    }
 
-		period := a.Details.EventDate.Format("2006-01")
-		periodMap[period]++
+    sort.Slice(res.TopStudents, func(i, j int) bool {
+        return res.TopStudents[i].Points > res.TopStudents[j].Points
+    })
+    if len(res.TopStudents) > 5 {
+        res.TopStudents = res.TopStudents[:5]
+    }
 
-		levelMap[a.Details.CompetitionLevel]++
-
-		st := scoreMap[a.StudentID]
-		st.points += int(a.Points)
-		st.count++
-		scoreMap[a.StudentID] = st
-	}
-
-	for t, c := range typeMap {
-		res.ByType = append(res.ByType, model.StatisticByType{Type: t, Count: c})
-	}
-	for p, c := range periodMap {
-		res.ByPeriod = append(res.ByPeriod, model.StatisticByPeriod{Period: p, Count: c})
-	}
-	for lv, c := range levelMap {
-		res.ByLevel = append(res.ByLevel, model.StatisticByLevel{Level: lv, Count: c})
-	}
-	for sid, val := range scoreMap {
-		res.TopStudents = append(res.TopStudents, model.TopStudent{
-			StudentID: sid,
-			Count:     val.count,
-			Points:    val.points,
-		})
-	}
-
-	sort.Slice(res.TopStudents, func(i, j int) bool {
-		return res.TopStudents[i].Points > res.TopStudents[j].Points
-	})
-	if len(res.TopStudents) > 5 {
-		res.TopStudents = res.TopStudents[:5]
-	}
-
-	return &res, nil
+    return &res, nil
 }
 
 func (r *ReportRepository) GetStudentReport(ctx context.Context, studentID string) (*model.StudentReportResponse, error) {

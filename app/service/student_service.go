@@ -4,6 +4,7 @@ import (
 	"context"
 	"prestasi_mhs/app/model"
 	"prestasi_mhs/app/repository"
+    "prestasi_mhs/middleware"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -42,57 +43,51 @@ func (s *StudentService) FindByID(ctx context.Context, id string) (*model.Studen
 	return s.Repo.FindByID(ctx, id)
 }
 
-func (s *StudentService) ListHTTP(c *fiber.Ctx) error {
-    ctx := context.Background()
+func (s *StudentService) List(c *fiber.Ctx) error {
+    if !middleware.HasPermission(c, "read_achievement") {
+        return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+    }
 
+    ctx := context.Background()
     role := c.Locals("role").(string)
     userID := c.Locals("user_id").(string)
 
     page := c.QueryInt("page", 1)
     limit := c.QueryInt("limit", 10)
-    if page < 1 { page = 1 }
-    if limit < 1 { limit = 10 }
     offset := (page - 1) * limit
 
-    allStudents, err := s.FindAll(ctx)
+    students, err := s.Repo.FindAll(ctx)
     if err != nil {
         return c.Status(500).JSON(fiber.Map{"error": err.Error()})
     }
 
     var filtered []model.Student
-    if role == "Admin" {
-        filtered = allStudents
-    } else if role == "Dosen Wali" {
-        for _, st := range allStudents {
+    switch role {
+    case "Admin":
+        filtered = students
+    case "Dosen Wali":
+        for _, st := range students {
             ok, _ := s.IsMyStudent(ctx, userID, st.ID)
             if ok {
                 filtered = append(filtered, st)
             }
         }
-    } else {
+    default:
         return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
     }
 
     total := len(filtered)
-
     if offset >= total {
-        return c.JSON(fiber.Map{
-            "data":  []model.Student{},
-            "page":  page,
-            "limit": limit,
-            "total": total,
-            "pages": (total + limit - 1) / limit,
-        })
+        return c.JSON(fiber.Map{"data": []model.Student{}, "page": page, "limit": limit, "total": total, "pages": (total + limit - 1) / limit})
     }
 
     end := offset + limit
     if end > total {
         end = total
     }
-    paginated := filtered[offset:end]
 
     return c.JSON(fiber.Map{
-        "data":  paginated,
+        "data":  filtered[offset:end],
         "page":  page,
         "limit": limit,
         "total": total,
@@ -100,50 +95,59 @@ func (s *StudentService) ListHTTP(c *fiber.Ctx) error {
     })
 }
 
-func (s *StudentService) DetailHTTP(c *fiber.Ctx) error {
-	ctx := context.Background()
-	id := c.Params("id")
+func (s *StudentService) Detail(c *fiber.Ctx) error {
+    if !middleware.HasPermission(c, "read_achievement") {
+        return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+    }
 
-	roleIfc := c.Locals("role")
-	userIDIfc := c.Locals("user_id")
-	if roleIfc == nil || userIDIfc == nil {
-		return c.Status(401).JSON(fiber.Map{"error": "unauthorized"})
-	}
-
-	role := roleIfc.(string)
-	userID := userIDIfc.(string)
-
-	st, err := s.FindByID(ctx, id)
-	if err != nil || st == nil {
-		return c.Status(404).JSON(fiber.Map{"error": "student not found"})
-	}
-
-	if role == "Admin" {
-		return c.JSON(st)
-	} else if role == "Dosen Wali" {
-		ok, _ := s.IsMyStudent(ctx, userID, st.ID)
-		if ok {
-			return c.JSON(st)
-		} else {
-			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-		}
-	} else {
-		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-	}
-}
-
-func (s *StudentService) ListByStudentHTTP(c *fiber.Ctx) error {
     ctx := context.Background()
-    studentID := c.Params("id")
-
+    id := c.Params("id")
     role := c.Locals("role").(string)
     userID := c.Locals("user_id").(string)
 
-    if role == "Dosen Wali" {
-        ok, err := s.IsMyStudent(ctx, userID, studentID)
-        if err != nil {
-            return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+    st, err := s.Repo.FindByID(ctx, id)
+    if err != nil || st == nil {
+        return c.Status(404).JSON(fiber.Map{"error": "student not found"})
+    }
+
+    if role == "Mahasiswa" {
+        me, _ := s.FindByUserID(ctx, userID)
+        if me == nil || me.ID != st.ID {
+            return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
         }
+    }
+
+    if role == "Dosen Wali" {
+        ok, _ := s.IsMyStudent(ctx, userID, st.ID)
+        if !ok {
+            return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+        }
+    }
+
+    return c.JSON(st)
+}
+
+func (s *StudentService) ListByStudent(c *fiber.Ctx) error {
+    if !middleware.HasPermission(c, "read_achievement") {
+        return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+    }
+
+    ctx := context.Background()
+    studentID := c.Params("id")
+    role := c.Locals("role").(string)
+    userID := c.Locals("user_id").(string)
+
+    // business rule — student can only see self
+    if role == "Mahasiswa" {
+        me, _ := s.FindByUserID(ctx, userID)
+        if me == nil || me.ID != studentID {
+            return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+        }
+    }
+
+    // business rule — dosen only see advisee
+    if role == "Dosen Wali" {
+        ok, _ := s.IsMyStudent(ctx, userID, studentID)
         if !ok {
             return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
         }
@@ -151,26 +155,13 @@ func (s *StudentService) ListByStudentHTTP(c *fiber.Ctx) error {
 
     page := c.QueryInt("page", 1)
     limit := c.QueryInt("limit", 10)
-    if page < 1 { page = 1 }
-    if limit < 1 { limit = 10 }
     offset := (page - 1) * limit
 
     ids, err := s.RefRepo.FindMongoIDsByStudent(ctx, studentID)
     if err != nil {
         return c.Status(500).JSON(fiber.Map{"error": err.Error()})
     }
-
     total := len(ids)
-
-    if total == 0 {
-        return c.JSON(fiber.Map{
-            "data":  []model.Achievement{},
-            "page":  page,
-            "limit": limit,
-            "total": total,
-            "pages": 0,
-        })
-    }
 
     if offset >= total {
         return c.JSON(fiber.Map{
@@ -186,9 +177,8 @@ func (s *StudentService) ListByStudentHTTP(c *fiber.Ctx) error {
     if end > total {
         end = total
     }
-    pageIDs := ids[offset:end]
 
-    achs, err := s.MongoRepo.FindMany(ctx, pageIDs)
+    achs, err := s.MongoRepo.FindMany(ctx, ids[offset:end])
     if err != nil {
         return c.Status(500).JSON(fiber.Map{"error": err.Error()})
     }
@@ -202,24 +192,26 @@ func (s *StudentService) ListByStudentHTTP(c *fiber.Ctx) error {
     })
 }
 
-func (s *StudentService) UpdateAdvisorHTTP(c *fiber.Ctx) error {
-	studentID := c.Params("id")
+func (s *StudentService) UpdateAdvisor(c *fiber.Ctx) error {
+    if !middleware.HasPermission(c, "manage_users") {
+        return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+    }
 
-	type Req struct {
-		AdvisorID string `json:"advisorId"`
-	}
-	var req Req
-	c.BodyParser(&req)
+    studentID := c.Params("id")
 
-	if req.AdvisorID == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "advisorId required"})
-	}
+    var req struct {
+        AdvisorID string `json:"advisorId"`
+    }
+    c.BodyParser(&req)
 
-	err := s.Repo.UpdateAdvisor(context.Background(), studentID, req.AdvisorID)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
-	}
+    if req.AdvisorID == "" {
+        return c.Status(400).JSON(fiber.Map{"error": "advisorId required"})
+    }
 
-	return c.JSON(fiber.Map{"message": "advisor updated"})
+    err := s.Repo.UpdateAdvisor(context.Background(), studentID, req.AdvisorID)
+    if err != nil {
+        return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+    }
+
+    return c.JSON(fiber.Map{"message": "advisor updated"})
 }
-

@@ -9,3 +9,10 @@ type Lecturer struct {
 	Department string    `db:"department"`
 	CreatedAt  time.Time `db:"created_at"`
 }
+
+type Advisee struct {
+    ID            string `json:"id"`
+    StudentID     string `json:"student_id"`
+    ProgramStudy  string `json:"program_study"`
+    AcademicYear  string `json:"academic_year"`
+}

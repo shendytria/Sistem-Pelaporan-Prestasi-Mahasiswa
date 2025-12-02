@@ -22,7 +22,7 @@ func (s *UserService) FindByUsername(ctx context.Context, username string) (*mod
 	return s.Repo.FindByUsername(ctx, username)
 }
 
-func (s *UserService) ListHTTP(c *fiber.Ctx) error {
+func (s *UserService) List(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	page := c.QueryInt("page", 1)
@@ -46,7 +46,7 @@ func (s *UserService) ListHTTP(c *fiber.Ctx) error {
 	})
 }
 
-func (s *UserService) DetailHTTP(c *fiber.Ctx) error {
+func (s *UserService) Detail(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	user, err := s.Repo.FindByID(context.Background(), id)
@@ -60,7 +60,7 @@ func (s *UserService) DetailHTTP(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-func (s *UserService) CreateHTTP(c *fiber.Ctx) error {
+func (s *UserService) Create(c *fiber.Ctx) error {
 	var req model.CreateUserReq
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid body"})
@@ -89,7 +89,7 @@ func (s *UserService) CreateHTTP(c *fiber.Ctx) error {
     return c.JSON(user)
 }
 
-func (s *UserService) UpdateHTTP(c *fiber.Ctx) error {
+func (s *UserService) Update(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	var req model.User
@@ -107,7 +107,7 @@ func (s *UserService) UpdateHTTP(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Updated"})
 }
 
-func (s *UserService) DeleteHTTP(c *fiber.Ctx) error {
+func (s *UserService) Delete(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	err := s.Repo.Delete(context.Background(), id)
@@ -118,7 +118,7 @@ func (s *UserService) DeleteHTTP(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Deleted"})
 }
 
-func (s *UserService) UpdateRoleHTTP(c *fiber.Ctx) error {
+func (s *UserService) UpdateRole(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	type roleReq struct {

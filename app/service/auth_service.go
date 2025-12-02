@@ -19,7 +19,7 @@ func NewAuthService(userRepo *repository.UserRepository) *AuthService {
 	}
 }
 
-func (s *AuthService) LoginHTTP(c *fiber.Ctx) error {
+func (s *AuthService) Login(c *fiber.Ctx) error {
 	type LoginReq struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -75,7 +75,7 @@ func (s *AuthService) LoginHTTP(c *fiber.Ctx) error {
 	})
 }
 
-func (s *AuthService) RefreshHTTP(c *fiber.Ctx) error {
+func (s *AuthService) Refresh(c *fiber.Ctx) error {
 	type Req struct {
 		Refresh string `json:"refreshToken"`
 	}
@@ -105,7 +105,7 @@ func (s *AuthService) RefreshHTTP(c *fiber.Ctx) error {
 	})
 }
 
-func (s *AuthService) ProfileHTTP(c *fiber.Ctx) error {
+func (s *AuthService) Profile(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
 	roleID := c.Locals("role_id").(string)
 	roleName := c.Locals("role").(string)
@@ -130,6 +130,6 @@ func (s *AuthService) ProfileHTTP(c *fiber.Ctx) error {
 	})
 }
 
-func (s *AuthService) LogoutHTTP(c *fiber.Ctx) error {
+func (s *AuthService) Logout(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "logged out"})
 }

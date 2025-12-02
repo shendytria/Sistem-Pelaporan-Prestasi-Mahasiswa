@@ -25,7 +25,7 @@ func (r *LecturerRepository) FindAll(ctx context.Context) ([]model.Lecturer, err
 	return list, nil
 }
 
-func (r *LecturerRepository) FindAdvisees(ctx context.Context, lecturerID string) ([]map[string]interface{}, error) {
+func (r *LecturerRepository) FindAdvisees(ctx context.Context, lecturerID string) ([]model.Advisee, error) {
 	const q = `
 		SELECT s.id, s.student_id, s.program_study, s.academic_year
 		FROM students s
@@ -38,16 +38,11 @@ func (r *LecturerRepository) FindAdvisees(ctx context.Context, lecturerID string
 	}
 	defer rows.Close()
 
-	var list []map[string]interface{}
+	var list []model.Advisee
 	for rows.Next() {
-		var id, sid, ps, ay string
-		rows.Scan(&id, &sid, &ps, &ay)
-		list = append(list, map[string]interface{}{
-			"id":            id,
-			"student_id":    sid,
-			"program_study": ps,
-			"academic_year": ay,
-		})
+		var a model.Advisee
+		rows.Scan(&a.ID, &a.StudentID, &a.ProgramStudy, &a.AcademicYear)
+		list = append(list, a)
 	}
 	return list, nil
 }
@@ -61,22 +56,6 @@ func (r *LecturerRepository) FindByUserID(ctx context.Context, userID string) (*
 		return nil, err
 	}
 	return &l, nil
-}
-
-func (r *LecturerRepository) FindStudentByUserID(ctx context.Context, userID string) (*model.Student, error) {
-	const q = `
-		SELECT id, user_id, student_id, program_study, academic_year, advisor_id
-		FROM students
-		WHERE user_id = $1
-		LIMIT 1
-	`
-	row := database.PG.QueryRow(ctx, q, userID)
-
-	var s model.Student
-	if err := row.Scan(&s.ID, &s.UserID, &s.StudentID, &s.ProgramStudy, &s.AcademicYear, &s.AdvisorID); err != nil {
-		return nil, err
-	}
-	return &s, nil
 }
 
 func (r *LecturerRepository) FindByID(ctx context.Context, lecturerID string) (*model.Lecturer, error) {

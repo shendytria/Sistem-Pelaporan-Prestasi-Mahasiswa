@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+    "fmt"
 	"prestasi_mhs/app/repository"
+	"prestasi_mhs/middleware"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -21,78 +23,87 @@ func NewReportService(reportRepo *repository.ReportRepository, studentRepo *repo
 	}
 }
 
-func (s *ReportService) StatisticsHTTP(c *fiber.Ctx) error {
-	ctx := context.Background()
-	role := c.Locals("role").(string)
-	userID := c.Locals("user_id").(string)
+func (s *ReportService) Statistics(c *fiber.Ctx) error {
+    if !middleware.HasPermission(c, "read_achievement") {
+        return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+    }
 
-	var filter string
-	var args []interface{}
+    ctx := context.Background()
+    role := c.Locals("role").(string)
+    userID := c.Locals("user_id").(string)
 
-	if role == "Admin" {
-		filter = ""
+    var filter string
 
-	} else if role == "Dosen Wali" {
-		lecturer, err := s.LecturerRepo.FindByUserID(ctx, userID)
-		if err != nil || lecturer == nil {
-			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-		}
-		filter = " WHERE student_id IN (SELECT id FROM students WHERE advisor_id = $1)"
-		args = append(args, lecturer.ID)
+    switch role {
+    case "Admin":
+        filter = ""
 
-	} else if role == "Mahasiswa" {
-		student, err := s.StudentRepo.FindByUserID(ctx, userID)
-		if err != nil || student == nil {
-			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-		}
-		filter = " WHERE student_id = $1"
-		args = append(args, student.ID)
+    case "Dosen Wali":
+        lecturer, err := s.LecturerRepo.FindByUserID(ctx, userID)
+        if err != nil || lecturer == nil {
+            return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+        }
+        filter = fmt.Sprintf(
+            " WHERE student_id IN (SELECT id FROM students WHERE advisor_id = '%s')",
+            lecturer.ID,
+        )
 
-	} else {
-		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-	}
+    case "Mahasiswa":
+        student, err := s.StudentRepo.FindByUserID(ctx, userID)
+        if err != nil || student == nil {
+            return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+        }
+        filter = fmt.Sprintf(" WHERE student_id = '%s'", student.ID)
 
-	stats, err := s.Repo.GetStatistics(ctx, filter, args...)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
-	}
+    default:
+        return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+    }
 
-	return c.JSON(stats)
+    stats, err := s.Repo.GetStatistics(ctx, filter)
+    if err != nil {
+        return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+    }
+
+    return c.JSON(stats)
 }
 
-func (s *ReportService) StudentReportHTTP(c *fiber.Ctx) error {
-	ctx := context.Background()
-	role := c.Locals("role").(string)
-	userID := c.Locals("user_id").(string)
-	targetStudent := c.Params("id")
+func (s *ReportService) StudentReport(c *fiber.Ctx) error {
+    if !middleware.HasPermission(c, "read_achievement") {
+        return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+    }
 
-	if role == "Mahasiswa" {
-		student, err := s.StudentRepo.FindByUserID(ctx, userID)
-		if err != nil || student == nil || student.ID != targetStudent {
-			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-		}
+    ctx := context.Background()
+    role := c.Locals("role").(string)
+    userID := c.Locals("user_id").(string)
+    targetStudent := c.Params("id")
 
-	} else if role == "Dosen Wali" {
-		lecturer, err := s.LecturerRepo.FindByUserID(ctx, userID)
-		if err != nil || lecturer == nil {
-			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-		}
+    switch role {
+    case "Mahasiswa":
+        student, err := s.StudentRepo.FindByUserID(ctx, userID)
+        if err != nil || student == nil || student.ID != targetStudent {
+            return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+        }
 
-		ok, err := s.StudentRepo.CheckAdvisor(ctx, lecturer.ID, targetStudent)
-		if err != nil || !ok {
-			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-		}
+    case "Dosen Wali":
+        lecturer, err := s.LecturerRepo.FindByUserID(ctx, userID)
+        if err != nil || lecturer == nil {
+            return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+        }
+        ok, err := s.StudentRepo.CheckAdvisor(ctx, lecturer.ID, targetStudent)
+        if err != nil || !ok {
+            return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+        }
 
-	} else if role == "Admin" {
+    case "Admin":
 
-	} else {
-		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-	}
+    default:
+        return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+    }
 
-	report, err := s.Repo.GetStudentReport(ctx, targetStudent)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
-	}
+    report, err := s.Repo.GetStudentReport(ctx, targetStudent)
+    if err != nil {
+        return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+    }
 
-	return c.JSON(report)
+    return c.JSON(report)
 }
