@@ -11,19 +11,16 @@ import (
 
 type StudentService struct {
     Repo     *repository.StudentRepository
-    RefRepo  *repository.AchievementReferenceRepository
-    MongoRepo *repository.AchievementMongoRepository
+    AchievementRepo *repository.AchievementRepository
 }
 
 func NewStudentService(
     studentRepo *repository.StudentRepository,
-    refRepo *repository.AchievementReferenceRepository,
-    mongoRepo *repository.AchievementMongoRepository,
+    achievementRepo *repository.AchievementRepository,
 ) *StudentService {
     return &StudentService{
         Repo:     studentRepo,
-        RefRepo:  refRepo,
-        MongoRepo: mongoRepo,
+        AchievementRepo: achievementRepo,
     }
 }
 
@@ -137,7 +134,6 @@ func (s *StudentService) ListByStudent(c *fiber.Ctx) error {
     role := c.Locals("role").(string)
     userID := c.Locals("user_id").(string)
 
-    // business rule — student can only see self
     if role == "Mahasiswa" {
         me, _ := s.FindByUserID(ctx, userID)
         if me == nil || me.ID != studentID {
@@ -145,7 +141,6 @@ func (s *StudentService) ListByStudent(c *fiber.Ctx) error {
         }
     }
 
-    // business rule — dosen only see advisee
     if role == "Dosen Wali" {
         ok, _ := s.IsMyStudent(ctx, userID, studentID)
         if !ok {
@@ -157,7 +152,7 @@ func (s *StudentService) ListByStudent(c *fiber.Ctx) error {
     limit := c.QueryInt("limit", 10)
     offset := (page - 1) * limit
 
-    ids, err := s.RefRepo.FindMongoIDsByStudent(ctx, studentID)
+    ids, err := s.AchievementRepo.FindMongoIDsByStudent(ctx, studentID)
     if err != nil {
         return c.Status(500).JSON(fiber.Map{"error": err.Error()})
     }
@@ -178,7 +173,7 @@ func (s *StudentService) ListByStudent(c *fiber.Ctx) error {
         end = total
     }
 
-    achs, err := s.MongoRepo.FindMany(ctx, ids[offset:end])
+    achs, err := s.AchievementRepo.FindManyMongo(ctx, ids[offset:end])
     if err != nil {
         return c.Status(500).JSON(fiber.Map{"error": err.Error()})
     }

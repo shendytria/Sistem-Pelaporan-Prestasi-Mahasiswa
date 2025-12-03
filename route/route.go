@@ -11,7 +11,7 @@ func RegisterRoutes(
 	app *fiber.App,
 	authSvc *service.AuthService,
 	userSvc *service.UserService,
-	achSvc *service.AchievementUsecaseService,
+	achSvc *service.AchievementService,
 	studentSvc *service.StudentService,
 	lecturerSvc *service.LecturerService,
 	reportSvc *service.ReportService,

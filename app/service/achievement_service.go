@@ -6,97 +6,22 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"prestasi_mhs/app/model"
 	"prestasi_mhs/app/repository"
 	"prestasi_mhs/middleware"
 )
 
-type AchievementMongoService struct {
-	Repo *repository.AchievementMongoRepository
-}
-
-func NewAchievementMongoService(repo *repository.AchievementMongoRepository) *AchievementMongoService {
-	return &AchievementMongoService{Repo: repo}
-}
-
-func (s *AchievementMongoService) Insert(ctx context.Context, a *model.Achievement) (primitive.ObjectID, error) {
-	return s.Repo.Insert(ctx, a)
-}
-
-func (s *AchievementMongoService) FindMany(ctx context.Context, ids []string) ([]model.Achievement, error) {
-	return s.Repo.FindMany(ctx, ids)
-}
-
-func (s *AchievementMongoService) FindByID(ctx context.Context, id string) (*model.Achievement, error) {
-	return s.Repo.FindByID(ctx, id)
-}
-
-func (s *AchievementMongoService) Update(ctx context.Context, id string, data model.AchievementMongoUpdate) error {
-	return s.Repo.Update(ctx, id, data)
-}
-
-func (s *AchievementMongoService) SoftDelete(ctx context.Context, id string) error {
-	return s.Repo.SoftDelete(ctx, id)
-}
-
-func (s *AchievementMongoService) PushAttachment(ctx context.Context, id string, file model.AchievementFile) error {
-	return s.Repo.PushAttachment(ctx, id, file)
-}
-
-type AchievementReferenceService struct {
-	Repo *repository.AchievementReferenceRepository
-}
-
-func NewAchievementReferenceService(repo *repository.AchievementReferenceRepository) *AchievementReferenceService {
-	return &AchievementReferenceService{Repo: repo}
-}
-
-func (s *AchievementReferenceService) Insert(ctx context.Context, ref *model.AchievementReference) error {
-	return s.Repo.Insert(ctx, ref)
-}
-
-func (s *AchievementReferenceService) FindMongoIDsByStudent(ctx context.Context, studentID string) ([]string, error) {
-	return s.Repo.FindMongoIDsByStudent(ctx, studentID)
-}
-
-func (s *AchievementReferenceService) FindAll(ctx context.Context) ([]model.AchievementReference, error) {
-	return s.Repo.FindAll(ctx)
-}
-
-func (s *AchievementReferenceService) FindByID(ctx context.Context, id string) (*model.AchievementReference, error) {
-	return s.Repo.FindByID(ctx, id)
-}
-
-func (s *AchievementReferenceService) FindByStudent(ctx context.Context, studentID string) ([]model.AchievementReference, error) {
-	return s.Repo.FindByStudent(ctx, studentID)
-}
-
-func (s *AchievementReferenceService) UpdateStatus(ctx context.Context, id string, status string, submittedAt *time.Time, verifiedAt *time.Time, verifiedBy *string, rejectionNote *string) error {
-	return s.Repo.UpdateStatus(ctx, id, status, submittedAt, verifiedAt, verifiedBy, rejectionNote)
-}
-
-type AchievementUsecaseService struct {
-	MongoSvc   *AchievementMongoService
-	RefSvc     *AchievementReferenceService
+type AchievementService struct {
+	Repo       *repository.AchievementRepository
 	StudentSvc *StudentService
 }
 
-func NewAchievementUsecaseService(
-	mongoRepo *repository.AchievementMongoRepository,
-	refRepo *repository.AchievementReferenceRepository,
-	studentRepo *repository.StudentRepository,
-) *AchievementUsecaseService {
-
-	return &AchievementUsecaseService{
-		MongoSvc:   NewAchievementMongoService(mongoRepo),
-		RefSvc:     NewAchievementReferenceService(refRepo),
-		StudentSvc: NewStudentService(studentRepo, refRepo, mongoRepo),
-	}
+func NewAchievementService(repo *repository.AchievementRepository, studentSvc *StudentService) *AchievementService {
+	return &AchievementService{Repo: repo, StudentSvc: studentSvc}
 }
 
-func (s *AchievementUsecaseService) List(c *fiber.Ctx) error {
+func (s *AchievementService) List(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "read_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
@@ -109,7 +34,7 @@ func (s *AchievementUsecaseService) List(c *fiber.Ctx) error {
 	limit := c.QueryInt("limit", 10)
 	offset := (page - 1) * limit
 
-	refs, err := s.RefSvc.FindAll(ctx)
+	refs, err := s.Repo.FindAllReferences(ctx)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -148,11 +73,11 @@ func (s *AchievementUsecaseService) List(c *fiber.Ctx) error {
 		mongoIDs = append(mongoIDs, r.MongoAchievementID)
 	}
 
-	achs, _ := s.MongoSvc.FindMany(ctx, mongoIDs)
+	achs, _ := s.Repo.FindManyMongo(ctx, mongoIDs)
 	return c.JSON(fiber.Map{"data": achs, "page": page, "limit": limit, "total": total, "pages": (total + limit - 1) / limit})
 }
 
-func (s *AchievementUsecaseService) Detail(c *fiber.Ctx) error {
+func (s *AchievementService) Detail(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "read_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
@@ -162,7 +87,7 @@ func (s *AchievementUsecaseService) Detail(c *fiber.Ctx) error {
 	role := c.Locals("role").(string)
 	userID := c.Locals("user_id").(string)
 
-	ref, err := s.RefSvc.FindByID(ctx, id)
+	ref, err := s.Repo.FindReferenceByID(ctx, id)
 	if err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "not found"})
 	}
@@ -181,11 +106,11 @@ func (s *AchievementUsecaseService) Detail(c *fiber.Ctx) error {
 		}
 	}
 
-	ach, _ := s.MongoSvc.FindByID(ctx, ref.MongoAchievementID)
+	ach, _ := s.Repo.FindByIDMongo(ctx, ref.MongoAchievementID)
 	return c.JSON(ach)
 }
 
-func (s *AchievementUsecaseService) Create(c *fiber.Ctx) error {
+func (s *AchievementService) Create(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "create_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
@@ -207,39 +132,37 @@ func (s *AchievementUsecaseService) Create(c *fiber.Ctx) error {
 		}
 		var body CreateReq
 		c.BodyParser(&body)
-		studentID = body.StudentID
-		sid, ok := body.StudentID, body.StudentID != ""
-		if !ok || sid == "" {
+		if body.StudentID == "" {
 			return c.Status(400).JSON(fiber.Map{"error": "studentId required"})
 		}
-		studentID = sid
+		studentID = body.StudentID
 	}
 
 	var req model.Achievement
 	c.BodyParser(&req)
 	req.StudentID = studentID
 
-	mongoID, _ := s.MongoSvc.Insert(ctx, &req)
+	mongoID, _ := s.Repo.InsertMongo(ctx, &req)
 	ref := &model.AchievementReference{
 		ID: uuid.New().String(), StudentID: studentID, MongoAchievementID: mongoID.Hex(),
 		Status: "draft", CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
-	s.RefSvc.Insert(ctx, ref)
+	s.Repo.InsertReference(ctx, ref)
 
 	return c.JSON(fiber.Map{"message": "achievement created"})
 }
 
-func (s *AchievementUsecaseService) Update(c *fiber.Ctx) error {
+func (s *AchievementService) Update(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "update_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
 
 	ctx := context.Background()
 	id := c.Params("id")
-	userID := c.Locals("user_id").(string)
 	role := c.Locals("role").(string)
+	userID := c.Locals("user_id").(string)
 
-	ref, err := s.RefSvc.FindByID(ctx, id)
+	ref, err := s.Repo.FindReferenceByID(ctx, id)
 	if err != nil || ref.Status != "draft" {
 		return c.Status(400).JSON(fiber.Map{"error": "only draft can be updated"})
 	}
@@ -256,41 +179,91 @@ func (s *AchievementUsecaseService) Update(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid JSON body"})
 	}
 
+	if role == "Admin" && req.StudentID != nil && *req.StudentID != ref.StudentID {
+		ref.StudentID = *req.StudentID
+		now := time.Now()
+		s.Repo.UpdateStatus(ctx, ref.ID, ref.Status, ref.SubmittedAt, ref.VerifiedAt, ref.VerifiedBy, ref.RejectionNote, req.StudentID)
+		_ = s.Repo.UpdateMongo(ctx, ref.MongoAchievementID, &model.AchievementMongoUpdate{
+			StudentID: req.StudentID,
+			UpdatedAt: now,
+		})
+		_ = s.Repo.InsertReference(ctx, &model.AchievementReference{
+			ID:                 ref.ID,
+			StudentID:          ref.StudentID,
+			MongoAchievementID: ref.MongoAchievementID,
+			Status:             ref.Status,
+			CreatedAt:          ref.CreatedAt,
+			UpdatedAt:          now,
+		})
+	}
+
+	old, _ := s.Repo.FindByIDMongo(ctx, ref.MongoAchievementID)
+
 	update := model.AchievementMongoUpdate{
-		Title:           req.Title,
-		Description:     req.Description,
-		AchievementType: req.AchievementType,
-		Details:         req.Details,
-		Tags:            req.Tags,
-		Points:          req.Points,
-		UpdatedAt:       time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
-	if update.Title == nil && update.Description == nil && update.AchievementType == nil &&
-		update.Details == nil && update.Tags == nil && update.Points == nil {
-		return c.Status(400).JSON(fiber.Map{"error": "no fields to update"})
+	if req.Title != nil {
+		update.Title = req.Title
+	} else {
+		v := old.Title
+		update.Title = &v
 	}
 
-	if err := s.MongoSvc.Update(ctx, ref.MongoAchievementID, update); err != nil {
+	if req.Description != nil {
+		update.Description = req.Description
+	} else {
+		v := old.Description
+		update.Description = &v
+	}
+
+	if req.AchievementType != nil {
+		update.AchievementType = req.AchievementType
+	} else {
+		v := old.AchievementType
+		update.AchievementType = &v
+	}
+
+	if req.Details != nil {
+		update.Details = req.Details
+	} else {
+		v := old.Details
+		update.Details = &v
+	}
+
+	if req.Tags != nil {
+		update.Tags = req.Tags
+	} else {
+		update.Tags = old.Tags
+	}
+
+	if req.Points != nil {
+		update.Points = req.Points
+	} else {
+		v := old.Points
+		update.Points = &v
+	}
+
+	if err := s.Repo.UpdateMongo(ctx, ref.MongoAchievementID, &update); err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	s.RefSvc.UpdateStatus(ctx, id, ref.Status, ref.SubmittedAt, ref.VerifiedAt, ref.VerifiedBy, ref.RejectionNote)
+	s.Repo.UpdateStatus(ctx, id, ref.Status, ref.SubmittedAt, ref.VerifiedAt, ref.VerifiedBy, ref.RejectionNote, nil)
 
 	return c.JSON(fiber.Map{"message": "achievement updated"})
 }
 
-func (s *AchievementUsecaseService) Delete(c *fiber.Ctx) error {
+func (s *AchievementService) Delete(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "delete_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
 
 	ctx := context.Background()
 	id := c.Params("id")
-	userID := c.Locals("user_id").(string)
 	role := c.Locals("role").(string)
+	userID := c.Locals("user_id").(string)
 
-	ref, err := s.RefSvc.FindByID(ctx, id)
+	ref, err := s.Repo.FindReferenceByID(ctx, id)
 	if err != nil || ref.Status != "draft" {
 		return c.Status(400).JSON(fiber.Map{"error": "only draft can be deleted"})
 	}
@@ -302,12 +275,12 @@ func (s *AchievementUsecaseService) Delete(c *fiber.Ctx) error {
 		}
 	}
 
-	s.MongoSvc.SoftDelete(ctx, ref.MongoAchievementID)
-	s.RefSvc.UpdateStatus(ctx, id, "deleted", nil, nil, nil, nil)
+	s.Repo.SoftDeleteMongo(ctx, ref.MongoAchievementID)
+	s.Repo.UpdateStatus(ctx, id, "deleted", nil, nil, nil, nil, nil)
 	return c.JSON(fiber.Map{"message": "deleted"})
 }
 
-func (s *AchievementUsecaseService) Submit(c *fiber.Ctx) error {
+func (s *AchievementService) Submit(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "update_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
@@ -317,7 +290,7 @@ func (s *AchievementUsecaseService) Submit(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
 	role := c.Locals("role").(string)
 
-	ref, _ := s.RefSvc.FindByID(ctx, id)
+	ref, _ := s.Repo.FindReferenceByID(ctx, id)
 	if ref.Status != "draft" {
 		return c.Status(400).JSON(fiber.Map{"error": "only draft can be submitted"})
 	}
@@ -330,11 +303,11 @@ func (s *AchievementUsecaseService) Submit(c *fiber.Ctx) error {
 	}
 
 	now := time.Now()
-	s.RefSvc.UpdateStatus(ctx, id, "submitted", &now, nil, nil, nil)
+	s.Repo.UpdateStatus(ctx, id, "submitted", &now, nil, nil, nil, nil)
 	return c.JSON(fiber.Map{"message": "submitted"})
 }
 
-func (s *AchievementUsecaseService) Verify(c *fiber.Ctx) error {
+func (s *AchievementService) Verify(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "verify_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
@@ -344,7 +317,7 @@ func (s *AchievementUsecaseService) Verify(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
 	role := c.Locals("role").(string)
 
-	ref, _ := s.RefSvc.FindByID(ctx, id)
+	ref, _ := s.Repo.FindReferenceByID(ctx, id)
 	if ref.Status == "deleted" {
 		return c.Status(400).JSON(fiber.Map{"error": "achievement deleted"})
 	}
@@ -362,11 +335,11 @@ func (s *AchievementUsecaseService) Verify(c *fiber.Ctx) error {
 
 	now := time.Now()
 	verifier := userID
-	s.RefSvc.UpdateStatus(ctx, id, "verified", nil, &now, &verifier, nil)
+	s.Repo.UpdateStatus(ctx, id, "verified", nil, &now, &verifier, nil, nil)
 	return c.JSON(fiber.Map{"message": "verified"})
 }
 
-func (s *AchievementUsecaseService) Reject(c *fiber.Ctx) error {
+func (s *AchievementService) Reject(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "verify_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
@@ -382,7 +355,7 @@ func (s *AchievementUsecaseService) Reject(c *fiber.Ctx) error {
 	var req Req
 	c.BodyParser(&req)
 
-	ref, _ := s.RefSvc.FindByID(ctx, id)
+	ref, _ := s.Repo.FindReferenceByID(ctx, id)
 	if ref.Status == "deleted" {
 		return c.Status(400).JSON(fiber.Map{"error": "achievement deleted"})
 	}
@@ -398,11 +371,11 @@ func (s *AchievementUsecaseService) Reject(c *fiber.Ctx) error {
 		}
 	}
 
-	s.RefSvc.UpdateStatus(ctx, id, "rejected", nil, nil, nil, &req.Reason)
+	s.Repo.UpdateStatus(ctx, id, "rejected", nil, nil, nil, &req.Reason, nil)
 	return c.JSON(fiber.Map{"message": "rejected"})
 }
 
-func (s *AchievementUsecaseService) History(c *fiber.Ctx) error {
+func (s *AchievementService) History(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "read_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
@@ -412,7 +385,7 @@ func (s *AchievementUsecaseService) History(c *fiber.Ctx) error {
 	role := c.Locals("role").(string)
 	userID := c.Locals("user_id").(string)
 
-	ref, _ := s.RefSvc.FindByID(ctx, id)
+	ref, _ := s.Repo.FindReferenceByID(ctx, id)
 
 	if role == "Mahasiswa" {
 		st, _ := s.StudentSvc.FindByUserID(ctx, userID)
@@ -428,10 +401,7 @@ func (s *AchievementUsecaseService) History(c *fiber.Ctx) error {
 		}
 	}
 
-	history := []model.AchievementHistory{
-		{Status: "draft", At: &ref.CreatedAt},
-	}
-
+	history := []model.AchievementHistory{{Status: "draft", At: &ref.CreatedAt}}
 	if ref.SubmittedAt != nil {
 		history = append(history, model.AchievementHistory{Status: "submitted", At: ref.SubmittedAt})
 	}
@@ -448,7 +418,7 @@ func (s *AchievementUsecaseService) History(c *fiber.Ctx) error {
 	return c.JSON(history)
 }
 
-func (s *AchievementUsecaseService) AddAttachment(c *fiber.Ctx) error {
+func (s *AchievementService) AddAttachment(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "update_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
 	}
@@ -458,7 +428,7 @@ func (s *AchievementUsecaseService) AddAttachment(c *fiber.Ctx) error {
 	role := c.Locals("role").(string)
 	userID := c.Locals("user_id").(string)
 
-	ref, err := s.RefSvc.FindByID(ctx, id)
+	ref, err := s.Repo.FindReferenceByID(ctx, id)
 	if err != nil || ref == nil {
 		return c.Status(404).JSON(fiber.Map{"error": "achievement not found"})
 	}
@@ -467,7 +437,6 @@ func (s *AchievementUsecaseService) AddAttachment(c *fiber.Ctx) error {
 		if ref.Status != "draft" && ref.Status != "submitted" {
 			return c.Status(400).JSON(fiber.Map{"error": "achievement is finalized"})
 		}
-
 		st, _ := s.StudentSvc.FindByUserID(ctx, userID)
 		if st == nil || st.ID != ref.StudentID {
 			return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -500,12 +469,10 @@ func (s *AchievementUsecaseService) AddAttachment(c *fiber.Ctx) error {
 		UploadedAt: time.Now(),
 	}
 
-	mongoID := ref.MongoAchievementID
-	if err := s.MongoSvc.PushAttachment(ctx, mongoID, attachment); err != nil {
+	if err := s.Repo.PushAttachmentMongo(ctx, ref.MongoAchievementID, attachment); err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to update attachment"})
 	}
 
-	s.RefSvc.UpdateStatus(ctx, ref.ID, ref.Status, ref.SubmittedAt, ref.VerifiedAt, ref.VerifiedBy, ref.RejectionNote)
-
+	s.Repo.UpdateStatus(ctx, ref.ID, ref.Status, ref.SubmittedAt, ref.VerifiedAt, ref.VerifiedBy, ref.RejectionNote, nil)
 	return c.JSON(fiber.Map{"message": "attachment added"})
 }

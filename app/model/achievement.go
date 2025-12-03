@@ -44,6 +44,7 @@ type AchievementFile struct {
 }
 
 type AchievementMongoUpdate struct {
+	StudentID       *string             `bson:"studentId,omitempty"`
 	Title           *string             `bson:"title,omitempty"`
 	Description     *string             `bson:"description,omitempty"`
 	AchievementType *string             `bson:"achievementType,omitempty"`
@@ -67,6 +68,7 @@ type AchievementReference struct {
 }
 
 type AchievementUpdate struct {
+	StudentID       *string             `json:"studentId"`
 	Title           *string             `json:"title"`
 	Description     *string             `json:"description"`
 	AchievementType *string             `json:"achievementType"`
