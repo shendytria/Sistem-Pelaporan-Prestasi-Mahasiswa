@@ -6,6 +6,13 @@ import (
 	"prestasi_mhs/database"
 )
 
+type LecturerRepo interface {
+	FindAll(ctx context.Context) ([]model.Lecturer, error)
+	FindAdvisees(ctx context.Context, lecturerID string) ([]model.Advisee, error)
+	FindByUserID(ctx context.Context, userID string) (*model.Lecturer, error)
+	FindByID(ctx context.Context, lecturerID string) (*model.Lecturer, error)
+}
+
 type LecturerRepository struct{}
 
 func NewLecturerRepository() *LecturerRepository { return &LecturerRepository{} }

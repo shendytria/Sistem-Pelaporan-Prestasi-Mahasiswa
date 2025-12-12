@@ -1,0 +1,1235 @@
+basePath: /api
+definitions:
+  model.Achievement:
+    properties:
+      achievementType:
+        type: string
+      attachments:
+        items:
+          $ref: '#/definitions/model.AchievementFile'
+        type: array
+      createdAt:
+        type: string
+      description:
+        type: string
+      details:
+        $ref: '#/definitions/model.AchievementDetails'
+      id:
+        type: string
+      points:
+        type: number
+      studentID:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  model.AchievementDetails:
+    properties:
+      competitionLevel:
+        type: string
+      competitionName:
+        type: string
+      customFields:
+        items:
+          $ref: '#/definitions/model.CustomField'
+        type: array
+      eventDate:
+        type: string
+      location:
+        type: string
+      medalType:
+        type: string
+      organizer:
+        type: string
+      rank:
+        type: integer
+    type: object
+  model.AchievementFile:
+    properties:
+      fileName:
+        type: string
+      fileType:
+        type: string
+      fileURL:
+        type: string
+      uploadedAt:
+        type: string
+    type: object
+  model.AchievementHistory:
+    properties:
+      at:
+        type: string
+      by:
+        type: string
+      note:
+        type: string
+      status:
+        type: string
+    type: object
+  model.AchievementUpdate:
+    properties:
+      achievementType:
+        type: string
+      description:
+        type: string
+      details:
+        $ref: '#/definitions/model.AchievementDetails'
+      points:
+        type: number
+      studentId:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    type: object
+  model.CreateUserReq:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      password_hash:
+        type: string
+      role_id:
+        type: string
+      username:
+        type: string
+    type: object
+  model.CustomField:
+    properties:
+      key:
+        type: string
+      value:
+        type: string
+    type: object
+  model.LoginReq:
+    properties:
+      password:
+        example: "123"
+        type: string
+      username:
+        example: admin
+        type: string
+    type: object
+  model.Permission:
+    properties:
+      action:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      resource:
+        type: string
+    type: object
+  model.Role:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/model.Permission'
+        type: array
+    type: object
+  model.StatisticByLevel:
+    properties:
+      count:
+        type: integer
+      level:
+        type: string
+    type: object
+  model.StatisticByPeriod:
+    properties:
+      count:
+        type: integer
+      period:
+        type: string
+    type: object
+  model.StatisticByType:
+    properties:
+      count:
+        type: integer
+      type:
+        type: string
+    type: object
+  model.StatisticResponse:
+    properties:
+      byLevel:
+        items:
+          $ref: '#/definitions/model.StatisticByLevel'
+        type: array
+      byPeriod:
+        items:
+          $ref: '#/definitions/model.StatisticByPeriod'
+        type: array
+      byType:
+        items:
+          $ref: '#/definitions/model.StatisticByType'
+        type: array
+      draft:
+        type: integer
+      rejected:
+        type: integer
+      submitted:
+        type: integer
+      topStudents:
+        items:
+          $ref: '#/definitions/model.TopStudent'
+        type: array
+      totalAchievements:
+        type: integer
+      verified:
+        type: integer
+    type: object
+  model.Student:
+    properties:
+      academicYear:
+        type: string
+      advisorID:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      programStudy:
+        type: string
+      studentID:
+        type: string
+      updatedAt:
+        type: string
+      userID:
+        type: string
+    type: object
+  model.StudentReportResponse:
+    properties:
+      draft:
+        type: integer
+      rejected:
+        type: integer
+      studentId:
+        type: string
+      submitted:
+        type: integer
+      totalAchievements:
+        type: integer
+      verified:
+        type: integer
+    type: object
+  model.TopStudent:
+    properties:
+      count:
+        type: integer
+      points:
+        type: integer
+      studentId:
+        type: string
+    type: object
+  model.User:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      fullName:
+        type: string
+      id:
+        type: string
+      isActive:
+        type: boolean
+      passwordHash:
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/model.Permission'
+        type: array
+      role:
+        $ref: '#/definitions/model.Role'
+      roleID:
+        type: string
+      updatedAt:
+        type: string
+      username:
+        type: string
+    type: object
+host: localhost:3000
+info:
+  contact:
+    email: shendytriaaa@gmail.com
+    name: Shendy Tria Amelyana
+  description: REST API untuk Sistem Prestasi Mahasiswa
+  title: Prestasi Mahasiswa API
+  version: "1.0"
+paths:
+  /achievements:
+    get:
+      description: Admin melihat semua, Mahasiswa hanya miliknya, Dosen Wali hanya
+        milik mahasiswa bimbingannya
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Limit per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Menampilkan daftar prestasi
+      tags:
+      - Achievements
+    post:
+      consumes:
+      - application/json
+      description: Admin dapat membuat untuk student lain, Mahasiswa membuat untuk
+        dirinya sendiri
+      parameters:
+      - description: Achievement body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.Achievement'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Membuat prestasi baru
+      tags:
+      - Achievements
+  /achievements/{id}:
+    delete:
+      description: Admin bisa menghapus mana saja, Mahasiswa hanya boleh menghapus
+        yang berstatus draft miliknya sendiri
+      parameters:
+      - description: Achievement ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Menghapus prestasi (soft delete)
+      tags:
+      - Achievements
+    get:
+      description: Admin melihat semua, Mahasiswa hanya miliknya, Dosen Wali hanya
+        milik mahasiswa bimbingannya
+      parameters:
+      - description: Achievement Reference ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Achievement'
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Melihat detail 1 prestasi
+      tags:
+      - Achievements
+    put:
+      consumes:
+      - application/json
+      description: Admin bisa override student_id, Mahasiswa dapat mengedit miliknya
+        selama masih berstatus draft
+      parameters:
+      - description: Achievement ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Partial update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.AchievementUpdate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update prestasi (hanya status DRAFT)
+      tags:
+      - Achievements
+  /achievements/{id}/attachments:
+    post:
+      consumes:
+      - multipart/form-data
+      - application/json
+      description: Admin bisa menambah file mana saja, Mahasiswa hanya bisa menambah
+        pada prestasi miliknya yang berstatus draft atau submitted
+      parameters:
+      - description: Achievement ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Upload file
+        in: formData
+        name: file
+        type: file
+      - description: Nama file (jika JSON)
+        in: formData
+        name: fileName
+        type: string
+      - description: URL file (jika JSON)
+        in: formData
+        name: fileUrl
+        type: string
+      - description: Tipe file
+        in: formData
+        name: fileType
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Menambahkan lampiran pada prestasi dalam bentuk JSON (URL file) atau
+        upload file langsung
+      tags:
+      - Achievements
+  /achievements/{id}/history:
+    get:
+      description: Admin bisa melihat riwayat perubahan status prestasi mana saja,
+        Mahasiswa hanya bisa melihat riwayat prestasi miliknya, Dosen wali hanya bisa
+        melihat riwayat prestasi milik mahasiswa bimbingannya
+      parameters:
+      - description: Achievement ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.AchievementHistory'
+            type: array
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Mendapatkan riwayat perubahan status prestasi
+      tags:
+      - Achievements
+  /achievements/{id}/reject:
+    post:
+      consumes:
+      - application/json
+      description: Admin bisa menolak mana saja, Dosen wali hanya menolak milik mahasiswanya
+        & hanya status submitted
+      parameters:
+      - description: Achievement ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Alasan penolakan
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Menolak prestasi dengan alasan tertentu
+      tags:
+      - Achievements
+  /achievements/{id}/submit:
+    post:
+      description: Admin bisa submit untuk student lain, Mahasiswa hanya boleh submit
+        miliknya sendiri
+      parameters:
+      - description: Achievement ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Submit prestasi dari draft → submitted
+      tags:
+      - Achievements
+  /achievements/{id}/verify:
+    post:
+      description: Admin bisa verifikasi mana saja, Dosen Wali hanya bisa verifikasi
+        milik mahasiswanya & hanya status submitted
+      parameters:
+      - description: Achievement ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Verifikasi prestasi mahasiswa
+      tags:
+      - Achievements
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Autentikasi user dan mendapatkan JWT token
+      parameters:
+      - description: Login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.LoginReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login user
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Logout user dari aplikasi
+      tags:
+      - Auth
+  /auth/profile:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Mendapatkan profil user login
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Refresh JWT token
+      tags:
+      - Auth
+  /lecturers:
+    get:
+      description: Admin dapat melihat semua dosen, Mahasiswa hanya dapat melihat
+        dosen pembimbingnya sendiri
+      parameters:
+      - description: Nomor halaman
+        in: query
+        name: page
+        type: integer
+      - description: Jumlah data per halaman
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Menampilkan daftar dosen
+      tags:
+      - Lecturers
+  /lecturers/{id}/advisees:
+    get:
+      description: Admin dapat melihat advisees dari dosen mana saja, Dosen Wali hanya
+        dapat melihat advisees miliknya sendiri
+      parameters:
+      - description: ID Dosen
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Nomor halaman
+        in: query
+        name: page
+        type: integer
+      - description: Jumlah data
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Menampilkan daftar mahasiswa bimbingan dari dosen tertentu
+      tags:
+      - Lecturers
+  /reports/statistics:
+    get:
+      description: Admin melihat seluruh statistik, Mahasiswa hanya statistik miliknya
+        sendiri, Dosen Wali hanya statistik mahasiswa bimbingannya
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.StatisticResponse'
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Menampilkan statistik prestasi
+      tags:
+      - Reports
+  /reports/student/{id}:
+    get:
+      description: Admin dapat melihat semua mahasiswa, Mahasiswa hanya dirinya sendiri,
+        Dosen Wali hanya mahasiswa bimbingannya
+      parameters:
+      - description: Student ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.StudentReportResponse'
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Menampilkan statistik prestasi berdasarkan mahasiswa tertentu
+      tags:
+      - Reports
+  /students:
+    get:
+      description: Admin melihat semua mahasiswa, Dosen wali hanya melihat mahasiswa
+        bimbingannya.
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Limit per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Menampilkan daftar mahasiswa
+      tags:
+      - Students
+  /students/{id}:
+    get:
+      description: Admin dapat melihat semua mahasiswa, Dosen wali hanya dapat melihat
+        mahasiswa bimbingannya, Mahasiswa hanya dapat melihat dirinya sendiri
+      parameters:
+      - description: Student ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Student'
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Mendapatkan detail 1 mahasiswa
+      tags:
+      - Students
+  /students/{id}/achievements:
+    get:
+      description: Admin dapat melihat semua, Mahasiswa hanya bisa melihat prestasinya
+        sendiri, Dosen wali hanya bisa melihat prestasi mahasiswa bimbingannya
+      parameters:
+      - description: Student ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Limit per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Menampilkan daftar prestasi milik mahasiswa tertentu
+      tags:
+      - Students
+  /students/{id}/advisor:
+    put:
+      consumes:
+      - application/json
+      description: Hanya Admin yang dapat mengubah dosen wali seorang mahasiswa
+      parameters:
+      - description: Student ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Advisor update body
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Mengubah dosen pembimbing mahasiswa
+      tags:
+      - Students
+  /users:
+    get:
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Limit data
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Menampilkan daftar user
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: User create body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateUserReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.User'
+      security:
+      - BearerAuth: []
+      summary: Membuat user baru
+      tags:
+      - Users
+  /users/{id}:
+    delete:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Menghapus user
+      tags:
+      - Users
+    get:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.User'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Mendapatkan detail user berdasarkan ID
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User update body
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Mengupdate data user
+      tags:
+      - Users
+  /users/{id}/role:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role update body
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Mengubah role user
+      tags:
+      - Users
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -13,14 +13,25 @@ import (
 )
 
 type AchievementService struct {
-	Repo       *repository.AchievementRepository
-	StudentSvc *StudentService
+	Repo       repository.AchievementRepo
+	StudentSvc StudentServiceInterface
 }
 
-func NewAchievementService(repo *repository.AchievementRepository, studentSvc *StudentService) *AchievementService {
+func NewAchievementService(repo repository.AchievementRepo, studentSvc StudentServiceInterface) *AchievementService {
 	return &AchievementService{Repo: repo, StudentSvc: studentSvc}
 }
 
+// List Achievements godoc
+// @Summary Menampilkan daftar prestasi
+// @Description Admin melihat semua, Mahasiswa hanya miliknya, Dosen Wali hanya milik mahasiswa bimbingannya
+// @Security BearerAuth
+// @Tags Achievements
+// @Produce json
+// @Param page query int false "Page number"
+// @Param limit query int false "Limit per page"
+// @Success 200 {object} map[string]interface{}
+// @Failure 403 {object} map[string]string
+// @Router /achievements [get]
 func (s *AchievementService) List(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "read_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -77,6 +88,17 @@ func (s *AchievementService) List(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"data": achs, "page": page, "limit": limit, "total": total, "pages": (total + limit - 1) / limit})
 }
 
+// Detail Achievement godoc
+// @Summary Melihat detail 1 prestasi
+// @Description Admin melihat semua, Mahasiswa hanya miliknya, Dosen Wali hanya milik mahasiswa bimbingannya
+// @Security BearerAuth
+// @Tags Achievements
+// @Produce json
+// @Param id path string true "Achievement Reference ID"
+// @Success 200 {object} model.Achievement
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /achievements/{id} [get]
 func (s *AchievementService) Detail(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "read_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -110,6 +132,18 @@ func (s *AchievementService) Detail(c *fiber.Ctx) error {
 	return c.JSON(ach)
 }
 
+// Create Achievement godoc
+// @Summary Membuat prestasi baru
+// @Description Admin dapat membuat untuk student lain, Mahasiswa membuat untuk dirinya sendiri
+// @Security BearerAuth
+// @Tags Achievements
+// @Accept json
+// @Produce json
+// @Param request body model.Achievement true "Achievement body"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /achievements [post]
 func (s *AchievementService) Create(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "create_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -144,7 +178,7 @@ func (s *AchievementService) Create(c *fiber.Ctx) error {
 
 	mongoID, _ := s.Repo.InsertMongo(ctx, &req)
 	ref := &model.AchievementReference{
-		ID: uuid.New().String(), StudentID: studentID, MongoAchievementID: mongoID.Hex(),
+		ID: uuid.New().String(), StudentID: studentID, MongoAchievementID: mongoID,
 		Status: "draft", CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	s.Repo.InsertReference(ctx, ref)
@@ -152,6 +186,19 @@ func (s *AchievementService) Create(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "achievement created"})
 }
 
+// Update Achievement godoc
+// @Summary Update prestasi (hanya status DRAFT)
+// @Description Admin bisa override student_id, Mahasiswa dapat mengedit miliknya selama masih berstatus draft
+// @Security BearerAuth
+// @Tags Achievements
+// @Accept json
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Param request body model.AchievementUpdate true "Partial update payload"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /achievements/{id} [put]
 func (s *AchievementService) Update(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "update_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -198,6 +245,9 @@ func (s *AchievementService) Update(c *fiber.Ctx) error {
 	}
 
 	old, _ := s.Repo.FindByIDMongo(ctx, ref.MongoAchievementID)
+	if old == nil {
+		old = &model.Achievement{} 
+	}
 
 	update := model.AchievementMongoUpdate{
 		UpdatedAt: time.Now(),
@@ -253,6 +303,17 @@ func (s *AchievementService) Update(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "achievement updated"})
 }
 
+// Delete Achievement godoc
+// @Summary Menghapus prestasi (soft delete)
+// @Description Admin bisa menghapus mana saja, Mahasiswa hanya boleh menghapus yang berstatus draft miliknya sendiri
+// @Security BearerAuth
+// @Tags Achievements
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /achievements/{id} [delete]
 func (s *AchievementService) Delete(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "delete_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -280,6 +341,17 @@ func (s *AchievementService) Delete(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "deleted"})
 }
 
+// Submit Achievement godoc
+// @Summary Submit prestasi dari draft → submitted
+// @Description Admin bisa submit untuk student lain, Mahasiswa hanya boleh submit miliknya sendiri
+// @Security BearerAuth
+// @Tags Achievements
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /achievements/{id}/submit [post]
 func (s *AchievementService) Submit(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "update_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -307,6 +379,17 @@ func (s *AchievementService) Submit(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "submitted"})
 }
 
+// Verify Achievement godoc
+// @Summary Verifikasi prestasi mahasiswa
+// @Description Admin bisa verifikasi mana saja, Dosen Wali hanya bisa verifikasi milik mahasiswanya & hanya status submitted
+// @Security BearerAuth
+// @Tags Achievements
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /achievements/{id}/verify [post]
 func (s *AchievementService) Verify(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "verify_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -339,6 +422,19 @@ func (s *AchievementService) Verify(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "verified"})
 }
 
+// Reject Achievement godoc
+// @Summary Menolak prestasi dengan alasan tertentu
+// @Description Admin bisa menolak mana saja, Dosen wali hanya menolak milik mahasiswanya & hanya status submitted
+// @Security BearerAuth
+// @Tags Achievements
+// @Accept json
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Param request body map[string]string true "Alasan penolakan"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /achievements/{id}/reject [post]
 func (s *AchievementService) Reject(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "verify_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -375,6 +471,16 @@ func (s *AchievementService) Reject(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "rejected"})
 }
 
+// Achievement History godoc
+// @Summary Mendapatkan riwayat perubahan status prestasi
+// @Description Admin bisa melihat riwayat perubahan status prestasi mana saja, Mahasiswa hanya bisa melihat riwayat prestasi miliknya, Dosen wali hanya bisa melihat riwayat prestasi milik mahasiswa bimbingannya
+// @Security BearerAuth
+// @Tags Achievements
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Success 200 {array} model.AchievementHistory
+// @Failure 403 {object} map[string]string
+// @Router /achievements/{id}/history [get]
 func (s *AchievementService) History(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "read_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -418,6 +524,24 @@ func (s *AchievementService) History(c *fiber.Ctx) error {
 	return c.JSON(history)
 }
 
+// Add Attachment godoc
+// @Summary Menambahkan lampiran pada prestasi dalam bentuk JSON (URL file) atau upload file langsung
+// @Description Admin bisa menambah file mana saja, Mahasiswa hanya bisa menambah pada prestasi miliknya yang berstatus draft atau submitted
+// @Security BearerAuth
+// @Tags Achievements
+// @Accept multipart/form-data
+// @Accept json
+// @Produce json
+// @Param id path string true "Achievement ID"
+// @Param file formData file false "Upload file"
+// @Param fileName formData string false "Nama file (jika JSON)"
+// @Param fileUrl formData string false "URL file (jika JSON)"
+// @Param fileType formData string false "Tipe file"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /achievements/{id}/attachments [post]
 func (s *AchievementService) AddAttachment(c *fiber.Ctx) error {
 	if !middleware.HasPermission(c, "update_achievement") {
 		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -447,6 +571,28 @@ func (s *AchievementService) AddAttachment(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "achievement deleted"})
 	}
 
+	var jsonInput struct {
+		FileName string `json:"fileName"`
+		FileURL  string `json:"fileUrl"`
+		FileType string `json:"fileType"`
+	}
+	if err := c.BodyParser(&jsonInput); err == nil && jsonInput.FileName != "" && jsonInput.FileURL != "" {
+		if jsonInput.FileType == "" {
+			jsonInput.FileType = "unknown"
+		}
+
+		attachment := model.AchievementFile{
+			FileName:   jsonInput.FileName,
+			FileURL:    jsonInput.FileURL,
+			FileType:   jsonInput.FileType,
+			UploadedAt: time.Now(),
+		}
+		_ = s.Repo.PushAttachmentMongo(ctx, ref.MongoAchievementID, attachment)
+		_ = s.Repo.UpdateStatus(ctx, ref.ID, ref.Status, ref.SubmittedAt, ref.VerifiedAt, ref.VerifiedBy, ref.RejectionNote, nil)
+
+		return c.JSON(fiber.Map{"message": "attachment added"})
+	}
+
 	file, err := c.FormFile("file")
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "file is required"})
@@ -468,11 +614,8 @@ func (s *AchievementService) AddAttachment(c *fiber.Ctx) error {
 		FileType:   fileType,
 		UploadedAt: time.Now(),
 	}
+	_ = s.Repo.PushAttachmentMongo(ctx, ref.MongoAchievementID, attachment)
+	_ = s.Repo.UpdateStatus(ctx, ref.ID, ref.Status, ref.SubmittedAt, ref.VerifiedAt, ref.VerifiedBy, ref.RejectionNote, nil)
 
-	if err := s.Repo.PushAttachmentMongo(ctx, ref.MongoAchievementID, attachment); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "failed to update attachment"})
-	}
-
-	s.Repo.UpdateStatus(ctx, ref.ID, ref.Status, ref.SubmittedAt, ref.VerifiedAt, ref.VerifiedBy, ref.RejectionNote, nil)
 	return c.JSON(fiber.Map{"message": "attachment added"})
 }

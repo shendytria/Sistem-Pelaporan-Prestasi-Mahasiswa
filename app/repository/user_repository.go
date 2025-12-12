@@ -8,6 +8,18 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type UserRepo interface {
+    FindByUsername(ctx context.Context, username string) (*model.User, error)
+    FindAll(ctx context.Context, limit, offset int) ([]model.User, int, error)
+    FindByID(ctx context.Context, id string) (*model.User, error)
+    Create(ctx context.Context, u *model.User) error
+    Update(ctx context.Context, u *model.User) error
+    Delete(ctx context.Context, id string) error
+    UpdateRole(ctx context.Context, id string, roleID string) error
+    GetPermissionsByRole(ctx context.Context, roleID string) ([]string, error)
+    GetRoleName(ctx context.Context, roleID string) (string, error)
+}
+
 type UserRepository struct{}
 
 func NewUserRepository() *UserRepository {

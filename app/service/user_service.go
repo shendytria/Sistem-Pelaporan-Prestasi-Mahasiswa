@@ -11,17 +11,22 @@ import (
 )
 
 type UserService struct {
-	Repo *repository.UserRepository
+	Repo repository.UserRepo
 }
 
-func NewUserService(repo *repository.UserRepository) *UserService {
+func NewUserService(repo repository.UserRepo) *UserService {
 	return &UserService{Repo: repo}
 }
 
-func (s *UserService) FindByUsername(ctx context.Context, username string) (*model.User, error) {
-	return s.Repo.FindByUsername(ctx, username)
-}
-
+// List Users godoc
+// @Summary Menampilkan daftar user
+// @Security BearerAuth
+// @Tags Users
+// @Produce json
+// @Param page query int false "Page number"
+// @Param limit query int false "Limit data"
+// @Success 200 {object} map[string]interface{}
+// @Router /users [get]
 func (s *UserService) List(c *fiber.Ctx) error {
 	ctx := context.Background()
 
@@ -46,6 +51,15 @@ func (s *UserService) List(c *fiber.Ctx) error {
 	})
 }
 
+// Get User Detail godoc
+// @Summary Mendapatkan detail user berdasarkan ID
+// @Security BearerAuth
+// @Tags Users
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} model.User
+// @Failure 404 {object} map[string]string
+// @Router /users/{id} [get]
 func (s *UserService) Detail(c *fiber.Ctx) error {
 	id := c.Params("id")
 
@@ -60,6 +74,15 @@ func (s *UserService) Detail(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
+// Create User godoc
+// @Summary Membuat user baru
+// @Security BearerAuth
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param request body model.CreateUserReq true "User create body"
+// @Success 200 {object} model.User
+// @Router /users [post]
 func (s *UserService) Create(c *fiber.Ctx) error {
 	var req model.CreateUserReq
 	if err := c.BodyParser(&req); err != nil {
@@ -89,6 +112,17 @@ func (s *UserService) Create(c *fiber.Ctx) error {
     return c.JSON(user)
 }
 
+// Update User godoc
+// @Summary Mengupdate data user
+// @Security BearerAuth
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param request body model.User true "User update body"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /users/{id} [put]
 func (s *UserService) Update(c *fiber.Ctx) error {
 	id := c.Params("id")
 
@@ -107,6 +141,13 @@ func (s *UserService) Update(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Updated"})
 }
 
+// Delete User godoc
+// @Summary Menghapus user
+// @Security BearerAuth
+// @Tags Users
+// @Param id path string true "User ID"
+// @Success 200 {object} map[string]string
+// @Router /users/{id} [delete]
 func (s *UserService) Delete(c *fiber.Ctx) error {
 	id := c.Params("id")
 
@@ -118,6 +159,17 @@ func (s *UserService) Delete(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Deleted"})
 }
 
+// Update User Role godoc
+// @Summary Mengubah role user
+// @Security BearerAuth
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param request body map[string]string true "Role update body"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /users/{id}/role [put]
 func (s *UserService) UpdateRole(c *fiber.Ctx) error {
 	id := c.Params("id")
 

@@ -13,12 +13,22 @@ type AuthService struct {
 	UserSvc *UserService
 }
 
-func NewAuthService(userRepo *repository.UserRepository) *AuthService {
+func NewAuthService(userRepo repository.UserRepo) *AuthService {
 	return &AuthService{
 		UserSvc: NewUserService(userRepo),
 	}
 }
 
+// Login godoc
+// @Summary Login user
+// @Description Autentikasi user dan mendapatkan JWT token
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body model.LoginReq true "Login request"
+// @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} map[string]string
+// @Router /auth/login [post]
 func (s *AuthService) Login(c *fiber.Ctx) error {
 	type LoginReq struct {
 		Username string `json:"username"`
@@ -33,7 +43,7 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 
 	ctx := context.Background()
 
-	user, err := s.UserSvc.FindByUsername(ctx, req.Username)
+	user, err := s.UserSvc.Repo.FindByUsername(ctx, req.Username)
 	if err != nil || user == nil {
 		return c.Status(401).JSON(fiber.Map{"error": "user not found"})
 	}
@@ -75,6 +85,16 @@ func (s *AuthService) Login(c *fiber.Ctx) error {
 	})
 }
 
+// Refresh Token godoc
+// @Summary Refresh JWT token
+// @Security BearerAuth
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body map[string]string true "Refresh token"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Router /auth/refresh [post]
 func (s *AuthService) Refresh(c *fiber.Ctx) error {
 	type Req struct {
 		Refresh string `json:"refreshToken"`
@@ -105,6 +125,14 @@ func (s *AuthService) Refresh(c *fiber.Ctx) error {
 	})
 }
 
+// Get Profile godoc
+// @Summary Mendapatkan profil user login
+// @Security BearerAuth
+// @Tags Auth
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 404 {object} map[string]string
+// @Router /auth/profile [get]
 func (s *AuthService) Profile(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
 	roleID := c.Locals("role_id").(string)
@@ -130,6 +158,13 @@ func (s *AuthService) Profile(c *fiber.Ctx) error {
 	})
 }
 
+// Logout godoc
+// @Summary Logout user dari aplikasi
+// @Security BearerAuth
+// @Tags Auth
+// @Produce json
+// @Success 200 {object} map[string]string
+// @Router /auth/logout [post]
 func (s *AuthService) Logout(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "logged out"})
 }

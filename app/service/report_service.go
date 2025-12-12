@@ -10,12 +10,12 @@ import (
 )
 
 type ReportService struct {
-	Repo         *repository.ReportRepository
-	StudentRepo  *repository.StudentRepository
-	LecturerRepo *repository.LecturerRepository
+	Repo         repository.ReportRepo
+	StudentRepo  repository.StudentRepo
+	LecturerRepo repository.LecturerRepo
 }
 
-func NewReportService(reportRepo *repository.ReportRepository, studentRepo *repository.StudentRepository, lecturerRepo *repository.LecturerRepository) *ReportService {
+func NewReportService(reportRepo repository.ReportRepo, studentRepo repository.StudentRepo, lecturerRepo  repository.LecturerRepo) *ReportService {
 	return &ReportService{
 		Repo:         reportRepo,
 		StudentRepo:  studentRepo,
@@ -23,6 +23,15 @@ func NewReportService(reportRepo *repository.ReportRepository, studentRepo *repo
 	}
 }
 
+// Get Achievement Statistics godoc
+// @Summary Menampilkan statistik prestasi
+// @Description Admin melihat seluruh statistik, Mahasiswa hanya statistik miliknya sendiri, Dosen Wali hanya statistik mahasiswa bimbingannya
+// @Security BearerAuth
+// @Tags Reports
+// @Produce json
+// @Success 200 {object} model.StatisticResponse
+// @Failure 403 {object} map[string]string
+// @Router /reports/statistics [get]
 func (s *ReportService) Statistics(c *fiber.Ctx) error {
     if !middleware.HasPermission(c, "read_achievement") {
         return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
@@ -67,6 +76,17 @@ func (s *ReportService) Statistics(c *fiber.Ctx) error {
     return c.JSON(stats)
 }
 
+// Get Student Achievement Report godoc
+// @Summary Menampilkan statistik prestasi berdasarkan mahasiswa tertentu
+// @Description Admin dapat melihat semua mahasiswa, Mahasiswa hanya dirinya sendiri, Dosen Wali hanya mahasiswa bimbingannya
+// @Security BearerAuth
+// @Tags Reports
+// @Produce json
+// @Param id path string true "Student ID"
+// @Success 200 {object} model.StudentReportResponse
+// @Failure 403 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /reports/student/{id} [get]
 func (s *ReportService) StudentReport(c *fiber.Ctx) error {
     if !middleware.HasPermission(c, "read_achievement") {
         return c.Status(403).JSON(fiber.Map{"error": "forbidden"})

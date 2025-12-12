@@ -89,6 +89,11 @@ func HasPermission(c *fiber.Ctx, permission string) bool {
 		return false
 	}
 	for _, p := range perms {
+		if p == "*" {
+			return true
+		}
+	}
+	for _, p := range perms {
 		if p == permission {
 			return true
 		}
@@ -106,6 +111,12 @@ func Permission(requiredPermission string) func(*fiber.Ctx) error {
 		}
 
 		for _, p := range perms {
+			if p == "*" {
+				return c.Next()
+			}
+		}
+
+		for _, p := range perms {
 			if p == requiredPermission {
 				return c.Next()
 			}
@@ -116,4 +127,3 @@ func Permission(requiredPermission string) func(*fiber.Ctx) error {
 		})
 	}
 }
-

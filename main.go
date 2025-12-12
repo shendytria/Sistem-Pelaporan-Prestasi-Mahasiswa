@@ -9,10 +9,20 @@ import (
 	"prestasi_mhs/database"
 	"prestasi_mhs/route"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
+	fiberSwagger "github.com/swaggo/fiber-swagger"
+	_"prestasi_mhs/docs"
 )
 
+// @title Prestasi Mahasiswa API
+// @version 1.0
+// @description REST API untuk Sistem Prestasi Mahasiswa
+// @contact.name Shendy Tria Amelyana
+// @contact.email shendytriaaa@gmail.com
+// @host localhost:3000
+// @BasePath /api
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 
 	config.Load()
@@ -27,16 +37,16 @@ func main() {
 	reportRepo := repository.NewReportRepository()
 
 	studentSvc := service.NewStudentService(studentRepo, achRepo)
-	lecturerSvc := service.NewLecturerService(lecturerRepo)
+	lecturerSvc := service.NewLecturerService(lecturerRepo, studentRepo)
 
 	authSvc := service.NewAuthService(userRepo)
 	userSvc := service.NewUserService(userRepo)
 	achSvc := service.NewAchievementService(achRepo, studentSvc)
 	reportSvc := service.NewReportService(reportRepo, studentRepo, lecturerRepo)
 
-	app := fiber.New()
-
-	app.Use(logger.New())
+	app := config.NewApp()
+	
+	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 
 	route.RegisterRoutes(app, authSvc, userSvc, achSvc, studentSvc, lecturerSvc, reportSvc)
 

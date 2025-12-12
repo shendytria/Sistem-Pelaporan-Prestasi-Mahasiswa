@@ -8,6 +8,16 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type StudentRepo interface {
+	FindByUserID(ctx context.Context, userID string) (*model.Student, error)
+	IsMyStudent(ctx context.Context, dosenUserID, studentID string) (bool, error)
+	FindAll(ctx context.Context) ([]model.Student, error)
+	FindByID(ctx context.Context, id string) (*model.Student, error)
+	UpdateAdvisor(ctx context.Context, studentID string, lecturerID string) error
+	CheckAdvisor(ctx context.Context, lecturerID, studentID string) (bool, error)
+	FindStudentByUserID(ctx context.Context, userID string) (*model.Student, error)
+}
+
 type StudentRepository struct{}
 
 func NewStudentRepository() *StudentRepository { return &StudentRepository{} }
@@ -106,7 +116,7 @@ func (r *StudentRepository) CheckAdvisor(ctx context.Context, lecturerID, studen
 	return count > 0, nil
 }
 
-func (r *LecturerRepository) FindStudentByUserID(ctx context.Context, userID string) (*model.Student, error) {
+func (r *StudentRepository) FindStudentByUserID(ctx context.Context, userID string) (*model.Student, error) {
 	const q = `
 		SELECT id, user_id, student_id, program_study, academic_year, advisor_id
 		FROM students

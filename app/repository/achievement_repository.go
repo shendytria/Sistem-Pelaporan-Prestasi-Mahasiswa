@@ -11,20 +11,34 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+type AchievementRepo interface {
+    InsertMongo(ctx context.Context, a *model.Achievement) (string, error)
+    FindManyMongo(ctx context.Context, ids []string) ([]model.Achievement, error)
+    FindByIDMongo(ctx context.Context, id string) (*model.Achievement, error)
+    UpdateMongo(ctx context.Context, id string, data *model.AchievementMongoUpdate) error
+    SoftDeleteMongo(ctx context.Context, id string) error
+	PushAttachmentMongo(ctx context.Context, id string, file model.AchievementFile) error
+    InsertReference(ctx context.Context, ref *model.AchievementReference) error
+    FindAllReferences(ctx context.Context) ([]model.AchievementReference, error)
+    FindReferenceByID(ctx context.Context, id string) (*model.AchievementReference, error)
+    UpdateStatus(ctx context.Context, id, status string, submittedAt, verifiedAt *time.Time, verifiedBy, note *string, studentID *string) error
+	FindMongoIDsByStudent(ctx context.Context, studentID string) ([]string, error)
+}
+
 type AchievementRepository struct{}
 
 func NewAchievementRepository() *AchievementRepository {
 	return &AchievementRepository{}
 }
 
-func (r *AchievementRepository) InsertMongo(ctx context.Context, a *model.Achievement) (primitive.ObjectID, error) {
+func (r *AchievementRepository) InsertMongo(ctx context.Context, a *model.Achievement) (string, error) {
 	a.ID = primitive.NewObjectID()
 	now := time.Now()
 	a.CreatedAt = now
 	a.UpdatedAt = now
 
 	_, err := database.Mongo.Collection("achievements").InsertOne(ctx, a)
-	return a.ID, err
+	return a.ID.Hex(), err
 }
 
 func (r *AchievementRepository) FindManyMongo(ctx context.Context, ids []string) ([]model.Achievement, error) {
