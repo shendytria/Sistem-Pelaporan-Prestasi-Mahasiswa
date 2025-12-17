@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"time"
+	"errors"
 
 	"prestasi_mhs/app/model"
 	"prestasi_mhs/database"
@@ -12,16 +13,16 @@ import (
 )
 
 type AchievementRepo interface {
-    InsertMongo(ctx context.Context, a *model.Achievement) (string, error)
-    FindManyMongo(ctx context.Context, ids []string) ([]model.Achievement, error)
-    FindByIDMongo(ctx context.Context, id string) (*model.Achievement, error)
-    UpdateMongo(ctx context.Context, id string, data *model.AchievementMongoUpdate) error
-    SoftDeleteMongo(ctx context.Context, id string) error
+	InsertMongo(ctx context.Context, a *model.Achievement) (string, error)
+	FindManyMongo(ctx context.Context, ids []string) ([]model.Achievement, error)
+	FindByIDMongo(ctx context.Context, id string) (*model.Achievement, error)
+	UpdateMongo(ctx context.Context, id string, data *model.AchievementMongoUpdate) error
+	SoftDeleteMongo(ctx context.Context, id string) error
 	PushAttachmentMongo(ctx context.Context, id string, file model.AchievementFile) error
-    InsertReference(ctx context.Context, ref *model.AchievementReference) error
-    FindAllReferences(ctx context.Context) ([]model.AchievementReference, error)
-    FindReferenceByID(ctx context.Context, id string) (*model.AchievementReference, error)
-    UpdateStatus(ctx context.Context, id, status string, submittedAt, verifiedAt *time.Time, verifiedBy, note *string, studentID *string) error
+	InsertReference(ctx context.Context, ref *model.AchievementReference) error
+	FindAllReferences(ctx context.Context) ([]model.AchievementReference, error)
+	FindReferenceByID(ctx context.Context, id string) (*model.AchievementReference, error)
+	UpdateStatus(ctx context.Context, id, status string, submittedAt, verifiedAt *time.Time, verifiedBy, note *string, studentID *string) error
 	FindMongoIDsByStudent(ctx context.Context, studentID string) ([]string, error)
 }
 
@@ -95,18 +96,31 @@ func (r *AchievementRepository) SoftDeleteMongo(ctx context.Context, id string) 
 	return err
 }
 
-func (r *AchievementRepository) PushAttachmentMongo(ctx context.Context, id string, file model.AchievementFile) error {
-	oid, _ := primitive.ObjectIDFromHex(id)
+func (r *AchievementRepository) PushAttachmentMongo(ctx context.Context, id string, file model.AchievementFile,) error {
 
-	_, _ = database.Mongo.Collection("achievements").
-		UpdateOne(ctx, bson.M{"_id": oid, "attachments": bson.M{"$eq": nil}},
-			bson.M{"$set": bson.M{"attachments": []model.AchievementFile{}}})
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
 
-	_, err := database.Mongo.Collection("achievements").
-		UpdateOne(ctx, bson.M{"_id": oid},
-			bson.M{"$push": bson.M{"attachments": file}, "$set": bson.M{"updatedAt": time.Now()}})
+	res, err := database.Mongo.Collection("achievements").
+		UpdateOne(
+			ctx,
+			bson.M{"_id": oid},
+			bson.M{
+				"$push": bson.M{"attachments": file},
+				"$set":  bson.M{"updatedAt": time.Now()},
+			},
+		)
+	if err != nil {
+		return err
+	}
 
-	return err
+	if res.MatchedCount == 0 {
+		return errors.New("mongo achievement not found")
+	}
+
+	return nil
 }
 
 func (r *AchievementRepository) InsertReference(ctx context.Context, ref *model.AchievementReference) error {

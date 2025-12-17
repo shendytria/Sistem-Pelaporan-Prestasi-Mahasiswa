@@ -246,7 +246,7 @@ func (s *AchievementService) Update(c *fiber.Ctx) error {
 
 	old, _ := s.Repo.FindByIDMongo(ctx, ref.MongoAchievementID)
 	if old == nil {
-		old = &model.Achievement{} 
+		old = &model.Achievement{}
 	}
 
 	update := model.AchievementMongoUpdate{
@@ -587,7 +587,11 @@ func (s *AchievementService) AddAttachment(c *fiber.Ctx) error {
 			FileType:   jsonInput.FileType,
 			UploadedAt: time.Now(),
 		}
-		_ = s.Repo.PushAttachmentMongo(ctx, ref.MongoAchievementID, attachment)
+		if err := s.Repo.PushAttachmentMongo(ctx, ref.MongoAchievementID, attachment); err != nil {
+			return c.Status(500).JSON(fiber.Map{
+				"error": "failed to add attachment to mongo",
+			})
+		}
 		_ = s.Repo.UpdateStatus(ctx, ref.ID, ref.Status, ref.SubmittedAt, ref.VerifiedAt, ref.VerifiedBy, ref.RejectionNote, nil)
 
 		return c.JSON(fiber.Map{"message": "attachment added"})
@@ -614,7 +618,11 @@ func (s *AchievementService) AddAttachment(c *fiber.Ctx) error {
 		FileType:   fileType,
 		UploadedAt: time.Now(),
 	}
-	_ = s.Repo.PushAttachmentMongo(ctx, ref.MongoAchievementID, attachment)
+	if err := s.Repo.PushAttachmentMongo(ctx, ref.MongoAchievementID, attachment); err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "failed to add attachment to mongo",
+		})
+	}
 	_ = s.Repo.UpdateStatus(ctx, ref.ID, ref.Status, ref.SubmittedAt, ref.VerifiedAt, ref.VerifiedBy, ref.RejectionNote, nil)
 
 	return c.JSON(fiber.Map{"message": "attachment added"})
